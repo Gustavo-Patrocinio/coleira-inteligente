@@ -18,20 +18,20 @@
 
 ### Minutos por comportamento (somando as 3 colunas)
 
-| Comportamento | min | Classe nossa (proposta) |
+| Comportamento | min | Classe nossa |
 |---|---:|---|
-| Panting | 296 | ignorar (sobreposto a uma postura) |
+| Panting | 296 | ignorado (sobreposto a uma postura) |
 | Lying chest | 188 | 0 `parado` |
 | Sitting | 187 | 0 `parado` |
 | Standing | 171 | 0 `parado` |
-| Sniffing | 171 | 0 ou 1, conforme o deslocamento (ADR 0004) |
-| Playing | 156 | 255 (movimento variado, não é uma classe nossa) |
+| Sniffing | 171 | 255: **sempre** aparece sozinho, sem postura ou andadura, então não dá para separar parado de andando (ADR 0004) |
+| Playing | 156 | contexto: com andadura vale a andadura; sozinho, 255 |
 | Walking | 131 | 1 `andando` |
 | Trotting | 129 | 2 `correndo` |
 | Eating | 52 | 5 `comendo` (Fase 6) |
 | Tugging | 50 | 255 |
 | Galloping | 29 | 2 `correndo` |
-| Carrying object | 24 | 255 |
+| Carrying object | 24 | contexto (igual a Playing) |
 | Pacing | 13 | 1 `andando` (andadura lateral; a confirmar) |
 | Drinking | 11 | 6 `bebendo` (Fase 6) |
 | **Shaking** | **7** | **4 `chacoalhando`** |
@@ -39,9 +39,40 @@
 | Synchronization / Bowing / Extra_Sync | 3 | 255 |
 | `<undefined>` | 3680 | 255 |
 
+### Rótulos simultâneos: o que aparece junto
+
+Combinações que guiaram as regras de `coleira_ml.public_dataset.map_label_set`:
+
+- **Galope quase nunca aparece sozinho** (0,6 min). Aparece com `Playing` (13,6 min) ou
+  `Playing + Carrying object` (14,9 min). Se `Playing` derrubasse a amostra para 255,
+  perderíamos o galope inteiro. Por isso `Playing`/`Carrying object` são *contexto*.
+- `Eating` aparece com postura (`Standing` 19 min, `Lying chest` 14, `Sitting` 13): vira 5.
+  Com andadura (6 min): vira 255.
+- O tempo é contínuo: todas as amostras estão a exatos 10 ms, sem buracos dentro de um teste.
+
+### Depois do mapeamento + reamostragem a 50 Hz
+
+| Classe | min | cães |
+|---|---:|---:|
+| 0 `parado` | 500,2 | 45 |
+| 1 `andando` | 139,0 | 45 |
+| 2 `correndo` | 156,0 | 45 |
+| 4 `chacoalhando` | 7,0 (286 eventos, mediana de 1,4 s) | 45 |
+| 5 `comendo` | 45,7 | 42 |
+| 6 `bebendo` | 10,8 | 35 |
+| 255 | 909,9 | — |
+
+### Faixa do sensor
+
+O dataset tem picos de ~19 g e ~2470 °/s. **35% das amostras de chacoalhar passam de 8 g**,
+o que motivou o ADR 0005 (acelerômetro em ±16 g). O loader satura os dados na faixa do nosso
+IMU (±16 g, ±2000 dps) para o treino ficar parecido com a coleira real.
+
+Exploração com gráficos: `ml/notebooks/01_explore.ipynb`.
+
 ## Consequências para o plano
 
 - **Tem chacoalhar (7 min), comer (52 min) e beber (11 min).** Dá para pré-treinar as classes 4–6 com dados públicos antes da coleta própria.
 - **Não tem coçar.** A classe 3 depende 100% da coleta própria (Fase 1).
 - `correndo` fica desbalanceado internamente: galope (29 min) é bem mais raro que trote (129 min).
-- O mapeamento final, inclusive as regras para rótulos simultâneos, fica em código (`coleira_ml`) com teste, e não só nesta tabela.
+- O mapeamento está implementado e testado em `coleira_ml.public_dataset` (`map_label_set`).

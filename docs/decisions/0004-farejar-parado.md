@@ -25,6 +25,10 @@ para separar, vão para 255.
 
 ## Consequência
 
+**Atualização (2026-11-16):** no dataset público, `Sniffing` nunca aparece junto com
+postura ou andadura (171 min, sempre sozinho). Pela regra acima, ele vai todo para 255.
+Na coleta própria, rotular farejar parado como 0 desde o início.
+
 A classe 0 fica mais variada e o modelo precisa tolerar movimento de cabeça nela.
 Isso pode aproximá-la de `comendo`/`bebendo` (5–6) na Fase 6, e esse ponto deve ser
 reavaliado nessa fase.

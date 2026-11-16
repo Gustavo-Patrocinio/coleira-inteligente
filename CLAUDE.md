@@ -101,7 +101,7 @@ coleira/
 Os IDs **nunca** são reaproveitados nem reordenados. Classe nova ganha ID novo.
 
 ### 4.2 Amostragem do IMU
-- 50 Hz, acelerômetro ±8 g e giroscópio ±2000 dps (chacoalhar gera rotação muito rápida).
+- 50 Hz, acelerômetro ±16 g (ADR 0005: chacoalhar passa de 8 g) e giroscópio ±2000 dps (máximo do chip; satura em parte do chacoalhar, aceito).
 - Montagem: embaixo do pescoço, sempre na mesma orientação física (marcada na caixa).
 
 ### 4.3 Janela do modelo
@@ -188,9 +188,9 @@ Little-endian, v1 (ADR 0001):
 
 - [x] Setup `ml/` com `uv`, ruff e pytest
 - [x] Baixar o dataset público (`ml/scripts/download_public.py`; resumo em `docs/dataset-publico.md`): Kumpulainen et al. (2021), *"Dog behaviour classification with movement sensors placed on the harness and the collar"* (Mendeley Data). Conferir no README dele a lista exata de classes e a frequência. Se houver rótulos de chacoalhar/comer/beber/farejar, guardar o mapeamento para pré-treinar as classes 3–6 depois
-- [ ] Usar **só o sensor da coleira**
-- [ ] Notebook `01_explore`: plotar trechos de cada comportamento
-- [ ] Reamostrar para 50 Hz; mapear as classes do dataset para os IDs 0–2
+- [x] Usar **só o sensor da coleira** (`coleira_ml.public_dataset.load_collar`)
+- [x] Notebook `01_explore`: plotar trechos de cada comportamento
+- [x] Reamostrar para 50 Hz; mapear as classes do dataset para os IDs 0–2 (também 4–6, que o dataset tem; saturação em ±16 g/±2000 dps, ADR 0005)
 - [ ] Janelamento (2 s, 50%); rótulo da janela pela regra da seção 4.3 (≥ 70%; regra especial para eventos curtos)
 - [ ] Augmentation: rotação 3D aleatória dos eixos, pequeno ruído e variação de escala
 - [ ] `GroupKFold` por cachorro
@@ -366,5 +366,5 @@ Little-endian, v1 (ADR 0001):
 ## 10. Status atual
 
 - **Fase atual:** 0
-- **Próxima tarefa:** loader do dataset público (só coleira) + mapeamento de classes em `coleira_ml`, e notebook `01_explore`
+- **Próxima tarefa:** janelamento (2 s, 50%, rótulo pela regra da seção 4.3) + `GroupKFold` por cachorro + baseline de features/Random Forest
 - **Hardware:** XIAO nRF52840 Sense + Raspberry Pi Pico H encomendados (AliExpress, previsão 27/nov–04/dez/2026); bateria, jumpers e kit de solda a comprar no Brasil
