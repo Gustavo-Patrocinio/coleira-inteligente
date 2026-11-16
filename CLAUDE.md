@@ -191,11 +191,11 @@ Little-endian, v1 (ADR 0001):
 - [x] Usar **só o sensor da coleira** (`coleira_ml.public_dataset.load_collar`)
 - [x] Notebook `01_explore`: plotar trechos de cada comportamento
 - [x] Reamostrar para 50 Hz; mapear as classes do dataset para os IDs 0–2 (também 4–6, que o dataset tem; saturação em ±16 g/±2000 dps, ADR 0005)
-- [ ] Janelamento (2 s, 50%); rótulo da janela pela regra da seção 4.3 (≥ 70%; regra especial para eventos curtos)
+- [x] Janelamento (2 s, 50%); rótulo da janela pela regra da seção 4.3 (≥ 70%; regra especial para eventos curtos)
 - [ ] Augmentation: rotação 3D aleatória dos eixos, pequeno ruído e variação de escala
-- [ ] `GroupKFold` por cachorro
-- [ ] Baseline: features (média, desvio, mín, máx, energia, frequência dominante FFT, magnitude) + Random Forest **raso**
-- [ ] Variante "compatível com MLC": árvore rasa usando só as features que o MLC da ST calcula (média, variância, energia, pico a pico, cruzamentos por zero, mín/máx, filtros; **sem FFT**). É ela que vai para o IMU na Fase 5
+- [x] `GroupKFold` por cachorro
+- [x] Baseline: features (média, desvio, mín, máx, energia, frequência dominante FFT, magnitude) + Random Forest **raso** → acur. balanceada 0,956 (ver `docs/results.md`)
+- [x] Variante "compatível com MLC" (parado × movimento: 0,986 com 29 nós; falta retreinar com rotação): árvore rasa usando só as features que o MLC da ST calcula (média, variância, energia, pico a pico, cruzamentos por zero, mín/máx, filtros; **sem FFT**). É ela que vai para o IMU na Fase 5
 - [ ] CNN 1D pequena (ex.: 3× [Conv1D k=5 → ReLU → MaxPool], 16/32/32 filtros → GAP → Dense)
 - [ ] Quantizar para int8; comparar a acurácia float vs int8
 - [ ] `docs/results.md`: tabela modelo × acurácia balanceada × F1 × KB
@@ -366,5 +366,5 @@ Little-endian, v1 (ADR 0001):
 ## 10. Status atual
 
 - **Fase atual:** 0
-- **Próxima tarefa:** janelamento (2 s, 50%, rótulo pela regra da seção 4.3) + `GroupKFold` por cachorro + baseline de features/Random Forest
+- **Próxima tarefa:** augmentation (rotação 3D, ruído, escala) + CNN 1D pequena (PyTorch), comparando com o baseline RF (0,956)
 - **Hardware:** XIAO nRF52840 Sense + Raspberry Pi Pico H encomendados (AliExpress, previsão 27/nov–04/dez/2026); bateria, jumpers e kit de solda a comprar no Brasil
