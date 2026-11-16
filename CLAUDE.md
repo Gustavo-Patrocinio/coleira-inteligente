@@ -157,7 +157,7 @@ Little-endian, v1 (ADR 0001):
 
 | Parte | Stack | Convenções |
 |-------|-------|------------|
-| ML | Python 3.12, `uv`, numpy, pandas, scipy, scikit-learn, PyTorch, TFLite (conversão int8) | `ruff` + `pytest`; notebooks só exploram, lógica fica em `src/` |
+| ML | Python 3.12, `uv`, numpy, pandas, scipy, scikit-learn, Keras 3/TensorFlow (ADR 0006), TFLite (conversão int8) | `ruff` + `pytest`; notebooks só exploram, lógica fica em `src/` |
 | Firmware | Zephyr via nRF Connect SDK (versão fixada no `west.yml`), C, TFLite Micro, MCUboot | Kconfig no `prj.conf`; zero `printk` em release; consumo medido a cada mudança relevante |
 | App | Flutter, `flutter_blue_plus`, `camera` | Lógica BLE isolada num serviço testável |
 | Backend | Node + TypeScript, Fastify, Zod, `pg`/Kysely, Postgres 16 + TimescaleDB | Migrations em SQL puro; ingestão idempotente (`ON CONFLICT DO NOTHING`) |
@@ -192,15 +192,17 @@ Little-endian, v1 (ADR 0001):
 - [x] Notebook `01_explore`: plotar trechos de cada comportamento
 - [x] Reamostrar para 50 Hz; mapear as classes do dataset para os IDs 0–2 (também 4–6, que o dataset tem; saturação em ±16 g/±2000 dps, ADR 0005)
 - [x] Janelamento (2 s, 50%); rótulo da janela pela regra da seção 4.3 (≥ 70%; regra especial para eventos curtos)
-- [ ] Augmentation: rotação 3D aleatória dos eixos, pequeno ruído e variação de escala
+- [x] Augmentation: rotação 3D aleatória dos eixos, pequeno ruído e variação de escala
 - [x] `GroupKFold` por cachorro
 - [x] Baseline: features (média, desvio, mín, máx, energia, frequência dominante FFT, magnitude) + Random Forest **raso** → acur. balanceada 0,956 (ver `docs/results.md`)
 - [x] Variante "compatível com MLC" (parado × movimento: 0,986 com 29 nós; falta retreinar com rotação): árvore rasa usando só as features que o MLC da ST calcula (média, variância, energia, pico a pico, cruzamentos por zero, mín/máx, filtros; **sem FFT**). É ela que vai para o IMU na Fase 5
-- [ ] CNN 1D pequena (ex.: 3× [Conv1D k=5 → ReLU → MaxPool], 16/32/32 filtros → GAP → Dense)
-- [ ] Quantizar para int8; comparar a acurácia float vs int8
-- [ ] `docs/results.md`: tabela modelo × acurácia balanceada × F1 × KB
+- [x] CNN 1D pequena (ex.: 3× [Conv1D k=5 → ReLU → MaxPool], 16/32/32 filtros → GAP → Dense), em Keras (ADR 0006)
+- [x] Quantizar para int8; comparar a acurácia float vs int8 (sem perda: 0,957 × 0,957)
+- [x] `docs/results.md`: tabela modelo × acurácia balanceada × F1 × KB
 
 **Pronto quando:** CNN int8 com acurácia balanceada ≥ 85% em 3 classes, em cachorros não vistos, ocupando < 64 KB.
+
+✅ **Concluída em 2026-11-16:** CNN int8 com 0,957 de acurácia balanceada (GroupKFold 5× por cachorro), 18,8 KB, robusta à rotação da coleira.
 
 ---
 
@@ -365,6 +367,6 @@ Little-endian, v1 (ADR 0001):
 
 ## 10. Status atual
 
-- **Fase atual:** 0
-- **Próxima tarefa:** augmentation (rotação 3D, ruído, escala) + CNN 1D pequena (PyTorch), comparando com o baseline RF (0,956)
+- **Fase atual:** 1 (Fase 0 concluída em 2026-11-16)
+- **Próxima tarefa:** enquanto o hardware não chega: ferramenta de rotulagem (`tools/labeler/`) e protocolo de coleta; depois, firmware do logger
 - **Hardware:** XIAO nRF52840 Sense + Raspberry Pi Pico H encomendados (AliExpress, previsão 27/nov–04/dez/2026); bateria, jumpers e kit de solda a comprar no Brasil
