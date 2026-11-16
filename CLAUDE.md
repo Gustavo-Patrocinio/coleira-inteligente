@@ -187,7 +187,7 @@ Little-endian, v1 (ADR 0001):
 **Objetivo:** provar o pipeline completo e ter um modelo inicial.
 
 - [x] Setup `ml/` com `uv`, ruff e pytest
-- [ ] Baixar o dataset público: Kumpulainen et al. (2021), *"Dog behaviour classification with movement sensors placed on the harness and the collar"* (Mendeley Data). Conferir no README dele a lista exata de classes e a frequência. Se houver rótulos de chacoalhar/comer/beber/farejar, guardar o mapeamento para pré-treinar as classes 3–6 depois
+- [x] Baixar o dataset público (`ml/scripts/download_public.py`; resumo em `docs/dataset-publico.md`): Kumpulainen et al. (2021), *"Dog behaviour classification with movement sensors placed on the harness and the collar"* (Mendeley Data). Conferir no README dele a lista exata de classes e a frequência. Se houver rótulos de chacoalhar/comer/beber/farejar, guardar o mapeamento para pré-treinar as classes 3–6 depois
 - [ ] Usar **só o sensor da coleira**
 - [ ] Notebook `01_explore`: plotar trechos de cada comportamento
 - [ ] Reamostrar para 50 Hz; mapear as classes do dataset para os IDs 0–2
@@ -366,5 +366,5 @@ Little-endian, v1 (ADR 0001):
 ## 10. Status atual
 
 - **Fase atual:** 0
-- **Próxima tarefa:** download do dataset público (Kumpulainen et al., 2021) e notebook `01_explore`
+- **Próxima tarefa:** loader do dataset público (só coleira) + mapeamento de classes em `coleira_ml`, e notebook `01_explore`
 - **Hardware:** XIAO nRF52840 Sense + Raspberry Pi Pico H encomendados (AliExpress, previsão 27/nov–04/dez/2026); bateria, jumpers e kit de solda a comprar no Brasil
