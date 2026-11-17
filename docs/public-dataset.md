@@ -70,6 +70,19 @@ to ADR 0005 (accelerometer at ±16 g). The loader saturates the data at our IMU'
 
 Exploration with plots: `ml/notebooks/01_explore.ipynb`.
 
+## Other datasets considered (searched 2026-11-16)
+
+| Dataset | Dogs | Sensor / placement | Labels | Available? | Verdict |
+|---|---:|---|---|---|---|
+| **Marcato et al. 2023**, *Inertial sensor dataset for Dog Posture Recognition* ([Mendeley 10.17632/mpph6bmn7g.1](https://doi.org/10.17632/mpph6bmn7g.1), [paper](https://doi.org/10.1371/journal.pone.0286311)) | 42 (assistance-dog Labradors/Goldens) | ActiGraph GT9X, 100 Hz, accel + gyro (+ mag), IMU at the **neck** (on a harness strap), plus back and chest | standing, sitting, lying down, walking, body shake (video, per second) | ✅ CC BY 4.0, `df_raw.csv` 573 MB | **Add.** Nearly doubles the dogs for classes 0, 1 and 4. Mostly two breeds; shakes are few (~93 s) |
+| Chambers et al. 2021, Whistle / Pet Insight ([paper](https://pmc.ncbi.nlm.nih.gov/articles/PMC8228965/)) | 2,217 | Whistle FIT, 25–50 Hz, accel only, collar | drink, eat, lick, petting, rubbing, **scratch**, shake, sniff | ❌ "available on request from the corresponding author" | Only dataset found with scratching at scale. Worth emailing the authors for research use |
+| BEBE benchmark ([Zenodo 7947104](https://zenodo.org/records/7947104), [paper](https://arxiv.org/abs/2305.10740)) | 45 | same as ours | same as ours | ✅ | Same Vehkaoja/Kumpulainen data repackaged; nothing new |
+| Karimjee et al. 2024 ([Zenodo 11904922](https://zenodo.org/records/11904922)) | 6 + volunteers | Axivity AX3, 200 Hz, collar, 48 h | active / inactive (not deposited) | ⚠️ aggregated metrics only, CC0 | Not useful: no raw signal |
+| Pruritus studies (Vetrax, ANIMO, Whistle alerts) | 6–361 | collar accelerometers | scratching, head shaking, sleep | ❌ no deposited data found | Useful as references for how scratching looks and is validated |
+
+No open dog **sleep** dataset with raw signal was found. Scratching and sleep remain the gaps
+our own collection must fill (or that the Whistle authors might share on request).
+
 ## Consequences for the plan
 
 - **It has shaking (7 min), eating (52 min) and drinking (11 min).** Classes 4–6 can be
