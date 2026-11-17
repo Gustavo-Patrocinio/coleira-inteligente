@@ -37,6 +37,34 @@ export to the firmware (Phase 2).
   while the IMU decides "still"). ⚠️ It uses axis-specific features (`ay`, `az`), which
   depend on collar orientation. It must be retrained with random rotation and validated on
   our own data before going into the IMU.
+## Two public datasets (Vehkaoja + Marcato, 87 dogs) · [report](results/multi_dataset.md)
+
+| Experiment | Balanced acc. |
+|---|---:|
+| Train V (45 dogs) → test M (42 other dogs, other lab) | **0.707** |
+| Train M → test V | **0.851** |
+| GroupKFold by dog, V test dogs: trained on V only / on V + M | 0.965 / 0.962 |
+| GroupKFold by dog, M test dogs: trained on V only / on V + M | 0.665 / **0.737** |
+| Combined int8 model (87 dogs) | 18.9 KB |
+
+### Reading (2026-11-16)
+
+- **Cross-population accuracy drops a lot (0.96 → 0.71–0.85).** This is the honest number
+  for "someone else's dog, set up by someone else", and the main risk for the open project.
+- **Most of the gap is where each lab drew the still / walking boundary**, not the sensor:
+  the V-trained model calls 28% of M's "still" walking, and the M-trained model calls 42% of
+  V's "walking" still. M's dogs stand with small steps during commanded postures; V's
+  "walking" includes slow, sniffing walks. Consistent definitions
+  ([labeling guide](protocols/labeling.md)) matter as much as more data.
+- **Adding M helps M-like dogs (+0.07) without hurting V dogs.** More diverse data is worth it.
+- **Shaking does not transfer from M** (F1 0.24–0.42 on M dogs): only ~19 short shakes in M,
+  labeled at 1 s resolution, so boundaries are coarse.
+- **What this changes:** every future model is also reported on a held-out population
+  (cross-dataset), not only on held-out dogs; Phase 1 data is labeled with one shared guide;
+  the Phase 1 domain-gap measurement on our own dogs is now the key result.
+
+## Notes
+
 - **Breathing ([report](results/breathing_feasibility.md)):** the collar clearly sees
   panting (~240/min, sharp peak); calm resting breathing is inconclusive on this dataset.
   Respiratory rate stays experimental until Phase 1 night videos.

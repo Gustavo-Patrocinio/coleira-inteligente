@@ -209,7 +209,8 @@ class or field → new `version`.
 4. All firmware from Phase 3 onward keeps **OTA working**; a change that breaks updates is
    blocking.
 5. When reporting model results, always show: balanced accuracy, per-class F1, confusion
-   matrix, size (KB) and inference RAM.
+   matrix, size (KB) and inference RAM. From now on, also report a **cross-population** test
+   (train on one dataset, test on another) when more than one dataset is available.
 6. Power consumption is only claimed with a measurement (PPK2) and recorded in
    `docs/energy-budget.md`.
 7. Prefer simple solutions and explain why; the project is also a learning project.

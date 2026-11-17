@@ -68,8 +68,15 @@ Evaluated with 5-fold `GroupKFold` by dog on the
 <sub>A single feature (variation of the acceleration magnitude over 2 s) already grows
 ~10× per step from still to walking to running to shaking.</sub>
 
-> These numbers come from a public dataset (different sensor, controlled environment).
-> The drop on our own dog's data (domain gap) will be measured in Phase 1.
+**Honest check across populations.** Adding a second public dataset (Marcato et al. 2023,
+42 assistance dogs, [details](docs/results/multi_dataset.md)) shows the real challenge: a
+model trained on one dataset and tested on the other's dogs scores **0.71–0.85**, mostly
+because each lab drew the still / walking boundary differently. Training on both helps the
+harder population (+0.07) without hurting the other, and a shared
+[labeling guide](docs/protocols/labeling.md) is now part of the protocol.
+
+> These numbers come from public datasets (different sensor, controlled environments).
+> The drop on our own dogs' data (domain gap) will be measured in Phase 1.
 
 ---
 
