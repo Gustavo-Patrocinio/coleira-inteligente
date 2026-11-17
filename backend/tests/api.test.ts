@@ -154,7 +154,10 @@ describe.runIf(() => available)("API with a real database", () => {
 
     const alerts = (await app.inject({ method: "GET", url: `/v1/dogs/${dogId}/alerts`, headers: owner })).json();
     expect(alerts).toHaveLength(1);
-    expect(alerts[0]).toMatchObject({ metric: "scratching", direction: "high", value: 900 });
+    expect(alerts[0]).toMatchObject({ metric: "scratching", direction: "high", value: 900, day: "2026-09-22" });
+
+    const metrics = await pool.query("SELECT day, scratching_s FROM daily_metrics WHERE dog_id = $1 ORDER BY day", [dogId]);
+    expect(metrics.rows.at(-1)).toEqual({ day: "2026-09-22", scratching_s: 900 }); // local day as plain text
 
     const fb = await app.inject({
       method: "POST",

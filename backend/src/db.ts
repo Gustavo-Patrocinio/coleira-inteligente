@@ -5,6 +5,10 @@ import pg from "pg";
 
 const MIGRATIONS_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "migrations");
 
+// Keep SQL `date` values as "YYYY-MM-DD" strings. By default pg turns them into JS Dates at
+// local midnight, which serialize as shifted UTC timestamps and break local-day semantics.
+pg.types.setTypeParser(pg.types.builtins.DATE, (v: string) => v);
+
 export function createPool(url: string): pg.Pool {
   return new pg.Pool({ connectionString: url, max: 10 });
 }

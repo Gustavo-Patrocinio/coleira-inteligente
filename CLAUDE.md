@@ -264,10 +264,11 @@ the author's dog **and at least 4 other dogs** of different sizes (ADR 0009).
 - [ ] MTU ≥ 131 negotiation (+ Data Length Extension); `seq` counter to detect loss
 - [ ] Plan B: if Zephyr blocks progress for more than 1 weekend, write the logger in Arduino (Seeed core + ArduinoBLE) keeping the same packet format
 
-**Collection app (`app/`, collection mode):**
-- [ ] Connect to the collar, film and write the CSV at the same time (section 4.5)
-- [ ] Generate the session `meta.json` (including `video_start_phone_ts_ms`)
-- [ ] Export the session (share or copy to the PC)
+**Collection app (`app/`, collection mode; Flutter for iOS + Android, BLE via universal_ble, ADR 0012; written and unit/widget-tested 2026-11-17, not yet run with the collar):**
+- [x] Connect to the collar, film and write the CSV at the same time (section 4.5) (code + recorder tests)
+- [x] Generate the session `meta.json` (including `video_start_phone_ts_ms`)
+- [x] Export the session (share sheet; iOS Files app access enabled)
+- [ ] Verified on a real phone with the collar logger
 
 **Protocol (`docs/protocols/collection.md`, written 2026-11-16, with `labeling.md` and `consent-template.md`; items below are done when practiced in real sessions):**
 - [ ] Adaptation: a few days wearing the collar without recording; check the skin
@@ -339,7 +340,7 @@ arrives on its own.
 - [x] "Made sense / false alarm" feedback on each alert
 - [ ] Push via Firebase Cloud Messaging
 - [x] Tests: duplicate ingestion, sync gaps, time zones (19 tests, integration against a real TimescaleDB)
-- [ ] App: trends and alerts screens
+- [x] App: trends and alerts screens (with feedback), backed by the API; [ ] push notifications
 - [ ] **Base station (`basestation/`, ADR 0007):** ESP32 (e.g. XIAO ESP32-C3) as BLE central that pulls new summaries from the collar and uploads them over Wi-Fi to `/ingest`; Wi-Fi provisioning from the app over BLE; per-device credential; collar prefers the base station when both clients are present
 - [ ] Phone keeps working as fallback sync away from home
 - [x] Several dogs per account; privacy (LGPD): export (`GET /v1/me/export`) and deletion (`DELETE /v1/me`); [ ] consent screen in the app
@@ -452,5 +453,5 @@ from the production design, with a cost per unit that allows selling it.
 
 - **Current phase:** 1 (Phase 0 completed 2026-11-16)
 - **Goal:** open project for any dog first, product later (ADR 0009)
-- **Next task:** when the XIAO arrives: flash `firmware/logger` and `firmware/app` (both build; NCS v2.9.0 in `C:\ncs`, tflite-micro in `C:\ncs\extra`), verify with `ml/scripts/record_ble.py` and the app's serial log (README status lists); meanwhile, backend or the Flutter collection app
+- **Next task:** when the XIAO arrives: flash `firmware/logger` and `firmware/app` (both build; NCS v2.9.0 in `C:\ncs`, tflite-micro in `C:\ncs\extra`), verify with `ml/scripts/record_ble.py`, the phone app's collection mode (install on the iPhone from the MacBook, `app/README.md`) and the firmware serial log; meanwhile, Phase 3 firmware (per-minute summary in flash + BLE sync) and push notifications
 - **Hardware:** XIAO nRF52840 Sense + Raspberry Pi Pico H ordered (AliExpress, ETA Nov 27 – Dec 4, 2026); battery, jumpers and soldering kit to buy locally
