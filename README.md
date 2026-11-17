@@ -83,9 +83,11 @@ dog's own normal ([docs/product/indicators.md](docs/product/indicators.md)):
 | **Something's off** | Is he lethargic or acting differently? |
 | **Water** *(Phase 6)* | Is he drinking a lot more? |
 
-Experimental: **sleeping respiratory rate** from the accelerometer while the dog is still.
-Vets ask owners to count resting breaths because a persistent increase is an early sign of
-heart disease.
+Experimental: **sleeping respiratory rate** from the IMU while the dog is still. Vets ask
+owners to count resting breaths because a persistent increase is an early sign of heart
+disease. A [feasibility check](docs/results/breathing_feasibility.md) on the public dataset
+shows the collar clearly sees **panting** (a candidate new class), while calm breathing
+still needs our own night recordings to confirm.
 
 ---
 
@@ -208,4 +210,4 @@ script and never committed.
 
 ## License
 
-No license has been chosen yet; all rights reserved until one is added.
+[MIT](LICENSE). The public dataset keeps its own license and is not redistributed here.

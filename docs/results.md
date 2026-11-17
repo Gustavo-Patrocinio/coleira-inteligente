@@ -37,5 +37,8 @@ export to the firmware (Phase 2).
   while the IMU decides "still"). ⚠️ It uses axis-specific features (`ay`, `az`), which
   depend on collar orientation. It must be retrained with random rotation and validated on
   our own data before going into the IMU.
+- **Breathing ([report](results/breathing_feasibility.md)):** the collar clearly sees
+  panting (~240/min, sharp peak); calm resting breathing is inconclusive on this dataset.
+  Respiratory rate stays experimental until Phase 1 night videos.
 - ⚠️ **All of this is on the public dataset** (different sensor, different mounting, dogs
   in a controlled setting). The drop on our own dog's data (domain gap) is measured in Phase 1.

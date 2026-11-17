@@ -348,7 +348,7 @@ dog coming home, without opening the app.
 - [ ] Tune BLE advertising/connection intervals
 - [ ] Fuel gauge (MAX17048) → real battery in the app
 - [ ] Measure each mode with PPK2: sleep, active, inference, sync
-- [ ] (Experimental) sleeping respiratory rate: sparse 1-min sampling every 30 min while asleep; validate against Phase 1 night videos
+- [ ] (Experimental) sleeping respiratory rate: sparse 1-min sampling every 30 min while asleep; validate against Phase 1 night videos. Public-dataset check: panting clearly visible, calm breathing inconclusive (`docs/results/breathing_feasibility.md`); try gyro and a ±2 g range during sleep sampling
 
 **Targets (to validate by measurement):**
 

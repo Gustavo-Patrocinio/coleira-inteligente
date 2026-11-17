@@ -35,9 +35,14 @@ Explicit owner request (2026-11-16). Three levels, from most reliable to experim
      0.1–1 Hz (10–30 breaths/min ≈ 0.17–0.5 Hz) → pick the strongest axis → count cycles
      (peaks or dominant frequency) → reject irregular windows (movement, dreaming).
    - Validate with the nights recorded in Phase 1 (breaths counted on video × raw signal),
-     target error ±2 breaths/min. A first feasibility check can run on the public
-     dataset's lying-down segments (no ground truth, but shows whether a periodic signal
-     exists).
+     target error ±2 breaths/min.
+   - **Feasibility check on the public dataset (2026-11-16,
+     [report](../results/breathing_feasibility.md)):** panting is clearly visible (sharp
+     peak at ~240/min, median SNR ~700), so the collar does see respiratory movement. Calm
+     breathing is **inconclusive, leaning negative**: peaks mostly sit at ~9/min near the
+     band edge (drift-like), only 6% in the plausible resting range. Stays experimental
+     until Phase 1 night videos; try a snug collar, the gyroscope and a ±2 g range during
+     sleep sampling.
    - Energy: sample ~1 min every 30 min during sleep, not continuously (Phase 5).
    - Needs a new field in the summary → summary v2 (the ADR 0001 version byte allows it).
 
@@ -53,6 +58,9 @@ The app never calls this a "sleep study": always "estimated from movement".
 
 ## Ideas for later
 
+- **Panting** (new class or a flag inside `still`, new ID + ADR): clearly visible from the
+  collar and labeled for 296 min in the public dataset. Useful on its own: heat stress,
+  pain, anxiety ("panting a lot while resting on a cool day").
 - **Head shaking** (new class, ID 7+): a classic sign of ear infection, more clinically
   valuable than a whole-body shake. Needs collection and an ADR.
 - Share a summary with the vet (web page on top of the Phase 4 API).
