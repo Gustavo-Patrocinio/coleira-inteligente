@@ -83,7 +83,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: node --test tools/labeler/test/
+      - run: node --test tools/labeler/test/*.test.js
 
   firmware:
     name: Firmware (NCS v2.9.0 build, 0 warnings)

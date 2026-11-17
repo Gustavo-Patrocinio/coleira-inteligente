@@ -139,7 +139,7 @@ firmware/        Zephyr / NCS: logger (raw BLE stream) and app (TFLite Micro, su
 basestation/     ESP32 home base station (Phase 4, not started; ml/scripts/sync_ble.py emulates it)
 app/             Flutter app for iOS and Android (dashboard, collection mode, sync)
 backend/         Fastify + Postgres/TimescaleDB (ingestion, baseline, alerts)
-hardware/        enclosure CAD (Phase 6) and custom PCB (Phase 7)
+hardware/        enclosure CAD (build123d, STEP + STL) and, later, the custom PCB (Phase 7)
 docs/            ADRs, results, dataset notes, product indicators
 ```
 
@@ -220,10 +220,16 @@ Seeed XIAO nRF52840 Sense · 3.7 V ~250 mAh LiPo · Raspberry Pi Pico as SWD pro
 Nordic PPK2 for power measurements · later an LSM6DSOX/LSM6DSV16X (MLC), a MAX17048 fuel
 gauge and an ESP32 base station.
 
+**Build your own:** [step-by-step build guide](docs/build-guide.md) (battery safety, soldering,
+assembly, pairing, fitting on the dog) and a [3D-printable case](hardware/cad/README.md)
+(parametric, STEP + STL, for 16/20/25 mm collars, ~20 g in total).
+
+![enclosure v1](docs/images/enclosure_v1.png)
+
 ## Animal welfare
 
 The dog's comfort comes first: gradual adaptation, minimal weight (the target is well under
-3% of body weight; the prototype is ~15 g), regular skin checks, supervised use until the
+3% of body weight; the prototype is ~20 g with its case), regular skin checks, supervised use until the
 enclosure is sealed, and no behavior is ever forced to collect data.
 
 ## Data and citation

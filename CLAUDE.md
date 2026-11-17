@@ -266,7 +266,7 @@ the author's dog **and at least 4 other dogs** of different sizes (ADR 0009).
 - [ ] Seeed XIAO nRF52840 Sense (6-axis IMU + microphone + charger on board). Its IMU is an LSM6DS3TR-C, **without MLC**. The MLC only arrives with the IMU swap in Phase 5
 - [ ] SWD probe (Raspberry Pi Pico H as debugprobe, or J-Link EDU Mini): Zephyr debugging and, in Phase 3, flashing MCUboot over the factory UF2 bootloader
 - [ ] 3.7 V ~250 mAh LiPo with protection (PCM), soldered to the BAT+/BAT− pads under the XIAO (the board has no JST connector)
-- [ ] Provisional 3D-printed case, with the orientation marked
+- [x] Provisional 3D-printed case, with the orientation marked: `hardware/cad` (build123d, STEP + STL, 3 collar widths, fit-checked in code; not printed yet); assembly in `docs/build-guide.md`
 
 **Firmware `firmware/logger/`** (code written 2026-11-16 before the hardware arrived, ADR 0010; builds with NCS v2.9.0 with 0 warnings, not run on a board yet; see its README status list. PC recorder: `ml/scripts/record_ble.py`):
 - [ ] Read the IMU at 50 Hz (Zephyr driver; check the board's exact IMU model)
@@ -393,7 +393,7 @@ dog coming home, without opening the app.
 
 - [ ] DIY enclosure: 3D-printable, sealed (O-ring), outer TPU layer against impact and bites, **universal clip** for collars of any width; STEP + STL published
 - [ ] Weight < 3% of the dog's weight for the smallest supported size; center of mass under the neck
-- [ ] Build guide with photos: parts list with links and prices, soldering, assembly, fit check
+- [ ] Build guide with photos: parts list with links and prices, soldering, assembly, fit check (text version: `docs/build-guide.md`; photos after the first build)
 - [ ] Prebuilt firmware releases (collar + base station) and a flashing guide for non-developers
 - [ ] App published (Android + iOS): onboarding that pairs the collar, creates the dog profile and provisions the base-station Wi-Fi, without help (onboarding written 2026-11-17: consent → dog → pair collar; Wi-Fi provisioning waits for the base station)
 - [ ] Model trained on 10–20+ dogs (Phase 1 + opt-in sessions from users), evaluated leave-one-dog-out
