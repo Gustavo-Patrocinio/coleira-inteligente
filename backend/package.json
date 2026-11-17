@@ -1,0 +1,33 @@
+{
+  "name": "collar-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Smart dog collar backend: ingestion, per-dog baseline and alerts (Phase 4)",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "migrate": "tsx src/scripts/migrate.ts",
+    "job:alerts": "tsx src/scripts/run-alerts.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@fastify/jwt": "9.0.2",
+    "fastify": "5.2.0",
+    "fastify-type-provider-zod": "4.0.2",
+    "pg": "8.13.1",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.2",
+    "@types/pg": "8.11.10",
+    "tsx": "4.19.2",
+    "typescript": "5.7.2",
+    "vitest": "2.1.8"
+  }
+}

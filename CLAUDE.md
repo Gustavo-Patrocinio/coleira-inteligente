@@ -329,21 +329,21 @@ the author's dog **and at least 4 other dogs** of different sizes (ADR 0009).
 **Goal:** the system learns what is normal for each dog, warns when it drifts, and data
 arrives on its own.
 
-- [ ] Postgres + TimescaleDB via Docker Compose
-- [ ] Tables: `users`, `dogs`, `devices`, `activity_minute` (hypertable), `alerts`
-- [ ] Continuous aggregates per hour and per day
-- [ ] Fastify + Zod API: auth (JWT), dogs/devices CRUD, **idempotent** batch `POST /ingest` (key `device_id + minute_ts`), recording which path delivered each batch (base station or app)
-- [ ] Query endpoints: daily routine, weekly/monthly trends, sleep summary
-- [ ] Baseline job: per dog × hour of day × (weekday/weekend), 28-day window, **median + MAD**
-- [ ] Alerts by robust z-score (|z| > 3) for total activity, scratching time and night restlessness (times he got up between 23:00 and 06:00); require ≥ 14 days of history before alerting
-- [ ] "Made sense / false alarm" feedback on each alert, stored to calibrate thresholds
+- [x] Postgres + TimescaleDB via Docker Compose (`backend/`, 2026-11-17)
+- [x] Tables: `users`, `dogs`, `devices`, `activity_minute` (hypertable), `alerts`, plus `daily_metrics`
+- [x] Continuous aggregate per hour (`activity_hourly`); daily metrics computed in local time by the job
+- [x] Fastify + Zod API: auth (JWT), dogs/devices, **idempotent** batch `POST /v1/ingest` (key `device_id + minute_ts`), recording which path delivered each batch (base station or app)
+- [x] Query endpoints: daily routine (15-min blocks), trends; [ ] sleep summary beyond night wake-ups
+- [x] Baseline job: daily totals vs **median + MAD** of the previous 28 days, same day type (ADR 0011, replaces the per-hour baseline for alerts)
+- [x] Alerts by robust z-score (|z| > 3) for total activity, scratching time and night wake-ups; ≥ 14 complete days of history; incomplete days skipped
+- [x] "Made sense / false alarm" feedback on each alert
 - [ ] Push via Firebase Cloud Messaging
-- [ ] Tests: duplicate ingestion, sync gaps, time zones
+- [x] Tests: duplicate ingestion, sync gaps, time zones (19 tests, integration against a real TimescaleDB)
 - [ ] App: trends and alerts screens
 - [ ] **Base station (`basestation/`, ADR 0007):** ESP32 (e.g. XIAO ESP32-C3) as BLE central that pulls new summaries from the collar and uploads them over Wi-Fi to `/ingest`; Wi-Fi provisioning from the app over BLE; per-device credential; collar prefers the base station when both clients are present
 - [ ] Phone keeps working as fallback sync away from home
-- [ ] Several dogs per account; privacy (LGPD): consent for data use, export and deletion of one's data
-- [ ] Self-hostable with Docker Compose (documented), plus one shared instance for beta users
+- [x] Several dogs per account; privacy (LGPD): export (`GET /v1/me/export`) and deletion (`DELETE /v1/me`); [ ] consent screen in the app
+- [ ] Self-hostable with Docker Compose (documented in `backend/README.md`; HTTPS/deploy guide pending), plus one shared instance for beta users
 
 **Done when:** a real alert fires correctly with your dog's data; repeated ingestion does
 not duplicate; with the base station on, data reaches the backend within minutes of the

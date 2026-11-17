@@ -1,0 +1,14 @@
+import { z } from "zod";
+
+const schema = z.object({
+  DATABASE_URL: z.string().url().default("postgres://collar:collar@localhost:54329/collar"),
+  JWT_SECRET: z.string().min(16, "JWT_SECRET must be at least 16 characters"),
+  PORT: z.coerce.number().int().default(3000),
+  ALERTS_EVERY_MIN: z.coerce.number().int().min(0).default(60),
+});
+
+export type Config = z.infer<typeof schema>;
+
+export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
+  return schema.parse(env);
+}

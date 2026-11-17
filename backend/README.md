@@ -1,0 +1,61 @@
+# Backend (Phase 4)
+
+TypeScript API (Fastify + Zod) on Postgres 16 + TimescaleDB. It receives the collar's
+per-minute summaries (contract 4.7) from the home base station or the phone, keeps one row
+per collar per minute, computes each dog's daily metrics and baseline, and raises alerts.
+
+## Run it
+
+```bash
+cd backend
+docker compose up -d          # Postgres 16 + TimescaleDB on localhost:54329
+npm install
+cp .env.example .env          # then set JWT_SECRET
+npm run migrate
+npm run dev                   # http://localhost:3000/health
+npm test                      # unit + integration tests (uses a throwaway database)
+npm run typecheck
+```
+
+Self-hosting: the same `docker-compose.yml` plus `npm start` behind HTTPS (e.g. Caddy).
+
+## API
+
+| Method | Path | Auth | What it does |
+|---|---|---|---|
+| GET | `/health` | — | liveness |
+| POST | `/v1/auth/register` | — | `{email, password}` → `{token}` (JWT, 30 days) |
+| POST | `/v1/auth/login` | — | `{email, password}` → `{token}` |
+| POST | `/v1/dogs` | user | `{name, timezone, birth_date?, weight_kg?}` |
+| GET | `/v1/dogs` | user | the user's dogs |
+| POST | `/v1/dogs/:id/devices` | user | `{serial}` → `{device_id, token}` (device token shown once) |
+| POST | `/v1/ingest` | device | `{records: base64 of N × 15-byte records, via: base_station \| app}` → `{received, inserted, duplicates, rejected[]}` |
+| GET | `/v1/dogs/:id/days/:day` | user | local day: totals per class, 15-min blocks, night wake-ups |
+| GET | `/v1/dogs/:id/trends?days=30` | user | daily metrics (active, scratching, night wake-ups, coverage) |
+| GET | `/v1/dogs/:id/alerts` | user | latest alerts |
+| POST | `/v1/alerts/:id/feedback` | user | `{feedback: useful \| false_alarm}` |
+| GET | `/v1/me/export` | user | all of the user's data as JSON (LGPD) |
+| DELETE | `/v1/me` | user | deletes the account and everything under it (LGPD) |
+
+User endpoints take `Authorization: Bearer <jwt>`; ingestion takes `Authorization: Bearer
+dev_...`. A dog that is not yours is a 404, never a 403, so IDs reveal nothing.
+
+## Design
+
+- **Ingestion is idempotent:** primary key `(device_id, minute_ts)` with
+  `ON CONFLICT DO NOTHING`. The base station and the phone can both upload the same minutes;
+  retries are harmless. Each row records which path delivered it (`via`).
+- **One decoder:** clients upload the collar's raw 15-byte records; only
+  `src/summary.ts` interprets them, and bad records are rejected one by one with a reason.
+- **Local time:** days and nights use the dog's IANA time zone.
+- **Alerts** (ADR 0011, `src/metrics.ts`): daily totals vs median + MAD of the previous 28
+  days of the same day type; robust |z| > 3; needs 14 complete days of history and a complete
+  day. Runs inside the server every `ALERTS_EVERY_MIN` minutes or with `npm run job:alerts`.
+- **Storage:** `activity_minute` is a TimescaleDB hypertable (7-day chunks) with an hourly
+  continuous aggregate (`activity_hourly`). Migrations are plain SQL in `migrations/`.
+
+## Not done yet
+
+- Push notifications (Firebase Cloud Messaging) when an alert is created.
+- Rate limiting and HTTPS termination (deploy concern).
+- Hourly "normal band" endpoint for the app's timeline (data is already aggregated).
