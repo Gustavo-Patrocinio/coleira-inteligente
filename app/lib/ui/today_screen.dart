@@ -14,6 +14,7 @@ class TodayScreen extends StatefulWidget {
 
 class _TodayScreenState extends State<TodayScreen> {
   Future<DayView>? _day;
+  Future<SleepView?>? _sleep;
 
   // The backend's days are in the dog's time zone; Brazil has no DST, so a fixed offset is
   // enough here. A full IANA lookup comes with multi-country support.
@@ -46,8 +47,20 @@ class _TodayScreenState extends State<TodayScreen> {
     }
   }
 
+  /// Optional: an older server without the sleep route, or no connection, falls back to the
+  /// day view's night wake-ups.
+  Future<SleepView?> _fetchSleep() async {
+    final s = AppScope.of(context);
+    try {
+      return await s.api!.sleep(s.dog!.id, _today());
+    } catch (_) {
+      return null;
+    }
+  }
+
   void _load() => setState(() {
     _day = _fetch();
+    _sleep = _fetchSleep();
   });
 
   @override
@@ -58,6 +71,7 @@ class _TodayScreenState extends State<TodayScreen> {
     if (_day == null || v != _seenVersion) {
       _seenVersion = v;
       _day = _fetch();
+      _sleep = _fetchSleep();
     }
   }
 
@@ -120,15 +134,21 @@ class _TodayScreenState extends State<TodayScreen> {
                   value: formatDuration(active),
                   detail: 'walking + running today',
                 ),
-                IndicatorCard(
-                  icon: Icons.nightlight_round,
-                  label: 'Sleep (last night)',
-                  value: d.nightWakeups == null
-                      ? '—'
-                      : 'woke up ${d.nightWakeups}×',
-                  detail: d.nightWakeups == null
-                      ? 'computed after the night is synced'
-                      : 'times he got up 23:00–06:00',
+                FutureBuilder<SleepView?>(
+                  future: _sleep,
+                  builder: (context, sleepSnap) {
+                    final (value, detail) = sleepCardText(
+                      sleepSnap.data,
+                      d.nightWakeups,
+                      _localOffset,
+                    );
+                    return IndicatorCard(
+                      icon: Icons.nightlight_round,
+                      label: 'Sleep (last night)',
+                      value: value,
+                      detail: detail,
+                    );
+                  },
                 ),
                 IndicatorCard(
                   icon: Icons.pets,

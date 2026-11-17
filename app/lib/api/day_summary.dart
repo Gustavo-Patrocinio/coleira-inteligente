@@ -114,3 +114,36 @@ String formatAgo(DateTime t, {DateTime? now}) {
   if (m < 48 * 60) return '${m ~/ 60} h ago';
   return '${m ~/ 1440} days ago';
 }
+
+String _clock(DateTime t, Duration localOffset) {
+  final l = t.toUtc().add(localOffset);
+  return '${l.hour.toString().padLeft(2, '0')}:${l.minute.toString().padLeft(2, '0')}';
+}
+
+/// Value and detail lines of the Today screen's sleep card. Uses the sleep estimate when the
+/// server has one, else the night wake-ups of the day view (older servers, offline).
+(String, String) sleepCardText(
+  SleepView? sleep,
+  int? nightWakeups,
+  Duration localOffset,
+) {
+  final n = sleep?.night;
+  if (n != null) {
+    final naps = sleep!.napCount == 0
+        ? ''
+        : ' · ${sleep.napCount} nap${sleep.napCount == 1 ? '' : 's'} '
+              '(${formatDuration(sleep.napMin * 60)})';
+    return (
+      'rested ${formatDuration(n.restMin * 60)}',
+      '${_clock(n.bedtime, localOffset)}–${_clock(n.wakeTime, localOffset)} · '
+          'woke up ${n.awakenings}×$naps · estimated from movement',
+    );
+  }
+  if (sleep != null && sleep.nightCoverage < 0.5) {
+    return ('—', 'not enough data from last night');
+  }
+  if (nightWakeups != null) {
+    return ('woke up $nightWakeups×', 'times he got up 23:00–06:00');
+  }
+  return ('—', 'computed after the night is synced');
+}

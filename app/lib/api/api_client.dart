@@ -96,6 +96,61 @@ class DayMetric {
   );
 }
 
+/// Last night's sleep, estimated from movement (GET /v1/dogs/:id/sleep/:day, backend/src/sleep.ts).
+class SleepNight {
+  const SleepNight({
+    required this.bedtime,
+    required this.wakeTime,
+    required this.inBedMin,
+    required this.restMin,
+    required this.awakenings,
+    required this.longestRestMin,
+    required this.missingMin,
+  });
+  final DateTime bedtime;
+  final DateTime wakeTime;
+  final int inBedMin;
+  final int restMin;
+  final int awakenings;
+  final int longestRestMin;
+  final int missingMin;
+
+  factory SleepNight.fromJson(Map<String, dynamic> j) => SleepNight(
+    bedtime: DateTime.parse(j['bedtime'] as String),
+    wakeTime: DateTime.parse(j['wake_time'] as String),
+    inBedMin: _int(j['in_bed_min']),
+    restMin: _int(j['rest_min']),
+    awakenings: _int(j['awakenings']),
+    longestRestMin: _int(j['longest_rest_min']),
+    missingMin: _int(j['missing_min']),
+  );
+}
+
+class SleepView {
+  const SleepView({
+    required this.day,
+    required this.nightCoverage,
+    required this.napCount,
+    required this.napMin,
+    this.night,
+  });
+  final String day;
+  final double nightCoverage; // 0..1 of the 20:00–11:00 window with data
+  final SleepNight? night; // null when no main rest period was found
+  final int napCount;
+  final int napMin;
+
+  factory SleepView.fromJson(Map<String, dynamic> j) => SleepView(
+    day: j['day'] as String,
+    nightCoverage: (j['night_coverage'] as num).toDouble(),
+    night: j['night'] == null
+        ? null
+        : SleepNight.fromJson(j['night'] as Map<String, dynamic>),
+    napCount: _int((j['naps'] as Map<String, dynamic>)['count']),
+    napMin: _int((j['naps'] as Map<String, dynamic>)['total_min']),
+  );
+}
+
 class AlertItem {
   const AlertItem({
     required this.id,
@@ -206,6 +261,9 @@ class CollarApi {
   Future<DayView> day(int dogId, String day) async =>
       DayView.fromJson(await _send('GET', '/v1/dogs/$dogId/days/$day'));
 
+  Future<SleepView> sleep(int dogId, String day) async =>
+      SleepView.fromJson(await _send('GET', '/v1/dogs/$dogId/sleep/$day'));
+
   Future<List<DayMetric>> trends(int dogId, {int days = 30}) async {
     final j = await _send('GET', '/v1/dogs/$dogId/trends?days=$days');
     return [
@@ -235,6 +293,16 @@ class CollarApi {
           body: {'version': version, 'research_opt_in': researchOptIn},
         ),
       );
+
+  /// This phone gets push notifications for new alerts.
+  Future<void> putPushToken(String token, String platform) => _send(
+    'PUT',
+    '/v1/me/push-token',
+    body: {'token': token, 'platform': platform},
+  );
+
+  Future<void> deletePushToken(String token) =>
+      _send('DELETE', '/v1/me/push-token', body: {'token': token});
 
   /// Everything the server holds about the account (LGPD), as pretty JSON.
   Future<String> exportMe() async =>

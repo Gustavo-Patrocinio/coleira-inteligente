@@ -140,6 +140,57 @@ void main() {
       expect(slots.whereType<Behavior>(), hasLength(2));
     });
 
+    test(
+      'sleep card: estimate, low coverage, and fallback to wake-ups',
+      () async {
+        final api = CollarApi(
+          baseUrl: Uri.parse('http://server:3000'),
+          token: 't',
+          client: MockClient((req) async {
+            expect(req.url.path, '/v1/dogs/7/sleep/2026-11-17');
+            return http.Response(
+              jsonEncode({
+                'day': '2026-11-17',
+                'timezone': 'America/Sao_Paulo',
+                'method': 'estimated from movement',
+                'night_coverage': 0.98,
+                'night': {
+                  'bedtime': '2026-11-17T01:50:00.000Z', // 22:50 in São Paulo
+                  'wake_time': '2026-11-17T10:10:00.000Z', // 07:10
+                  'in_bed_min': 500,
+                  'rest_min': 455,
+                  'awakenings': 3,
+                  'longest_rest_min': 190,
+                  'missing_min': 0,
+                },
+                'naps': {'count': 2, 'total_min': 65},
+              }),
+              200,
+            );
+          }),
+        );
+        final sleep = await api.sleep(7, '2026-11-17');
+        const brt = Duration(hours: -3);
+        expect(sleepCardText(sleep, 1, brt), (
+          'rested 7h35',
+          '22:50–07:10 · woke up 3× · 2 naps (1h05) · estimated from movement',
+        ));
+
+        const sparse = SleepView(
+          day: '2026-11-17',
+          nightCoverage: 0.2,
+          napCount: 0,
+          napMin: 0,
+        );
+        expect(
+          sleepCardText(sparse, null, brt).$2,
+          'not enough data from last night',
+        );
+        expect(sleepCardText(null, 2, brt).$1, 'woke up 2×');
+        expect(sleepCardText(null, null, brt).$1, '—');
+      },
+    );
+
     test('durations', () {
       expect(formatDuration(150), '3 min');
       expect(formatDuration(4320), '1h12');
