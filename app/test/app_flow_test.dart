@@ -50,9 +50,24 @@ class _NoSync implements SyncTransport {
 void main() {
   testWidgets('sign in, create the dog and see Today', (tester) async {
     final dogs = <Map<String, Object>>[];
+    Map<String, Object?> me = {
+      'email': 'a@b.com',
+      'consent_version': null,
+      'research_opt_in': false,
+    };
     final backend = MockClient((req) async {
       final p = req.url.path;
       if (p == '/v1/auth/login') return http.Response('{"token":"jwt"}', 200);
+      if (p == '/v1/me') return http.Response(jsonEncode(me), 200);
+      if (p == '/v1/me/consent' && req.method == 'PUT') {
+        final b = jsonDecode(req.body) as Map<String, dynamic>;
+        me = {
+          ...me,
+          'consent_version': b['version'],
+          'research_opt_in': b['research_opt_in'],
+        };
+        return http.Response(jsonEncode(me), 200);
+      }
       if (p == '/v1/dogs' && req.method == 'GET') {
         return http.Response(jsonEncode(dogs), 200);
       }
@@ -109,9 +124,28 @@ void main() {
     await tester.tap(find.text('Sign in'));
     await tester.pumpAndSettle();
 
+    // onboarding: consent (LGPD) → dog → collar
+    expect(find.text('Your data'), findsOneWidget);
+    final agree = find.text('Agree and continue');
+    await tester.scrollUntilVisible(agree, 200);
+    FilledButton button() => tester.widget<FilledButton>(
+      find.ancestor(of: agree, matching: find.byType(FilledButton)),
+    );
+    expect(button().onPressed, isNull); // nothing happens before agreeing
+    await tester.tap(find.text('I have read this and agree'));
+    await tester.pump();
+    await tester.tap(agree);
+    await tester.pumpAndSettle();
+    expect(me['consent_version'], AppState.consentVersion);
+    expect(me['research_opt_in'], false); // opt-in stays off unless ticked
+
     expect(find.text('What is your dog\'s name?'), findsOneWidget);
     await tester.enterText(find.widgetWithText(TextField, 'Name'), 'Thor');
     await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pair the collar'), findsOneWidget);
+    await tester.tap(find.text('Skip for now'));
     await tester.pumpAndSettle();
 
     expect(find.text('Thor · today'), findsOneWidget);

@@ -7,7 +7,12 @@ const config = loadConfig();
 const pool = createPool(config.DATABASE_URL);
 await migrate(pool, (m) => console.log(m));
 
-const app = await buildApp({ pool, jwtSecret: config.JWT_SECRET, logger: true });
+const app = await buildApp({
+  pool,
+  jwtSecret: config.JWT_SECRET,
+  logger: true,
+  trustProxy: config.TRUST_PROXY,
+});
 await app.listen({ port: config.PORT, host: "0.0.0.0" });
 
 if (config.ALERTS_EVERY_MIN > 0) {

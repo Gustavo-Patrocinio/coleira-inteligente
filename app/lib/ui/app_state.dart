@@ -47,9 +47,19 @@ class AppState extends ChangeNotifier {
   final SummaryCache cache;
   final DateTime Function() _clock;
 
+  /// Version of the privacy notice in the app (ConsentScreen). Bump it when the notice
+  /// changes in a way users must agree to again.
+  static const consentVersion = 1;
+
   CollarApi? api;
   String server = defaultServer;
   Dog? dog;
+  Me? me;
+
+  /// Set after the dog is created, so onboarding offers to pair the collar once.
+  bool pairStepPending = false;
+
+  bool get needsConsent => (me?.consentVersion ?? 0) < consentVersion;
   bool restoring = true;
 
   /// Bumped whenever new records arrive, so screens showing the day reload.
@@ -67,6 +77,7 @@ class AppState extends ChangeNotifier {
     if (loggedIn) {
       try {
         await _pickDog();
+        me = await api!.me();
       } catch (_) {
         api!.token = null; // expired token or server unreachable → log in again
       }
@@ -90,18 +101,49 @@ class AppState extends ChangeNotifier {
     await store.write('server', server);
     await store.write('token', a.token);
     await _pickDog();
+    me = await a.me();
     notifyListeners();
   }
 
   Future<void> createDog(String name) async {
     dog = await api!.createDog(name);
     await store.write('dog', '${dog!.id}');
+    pairStepPending = await store.read('paired_collar') == null;
     notifyListeners();
+  }
+
+  Future<void> acceptConsent({required bool researchOptIn}) async {
+    me = await api!.putConsent(consentVersion, researchOptIn: researchOptIn);
+    notifyListeners();
+  }
+
+  /// Registers the collar for the selected dog and keeps its upload token on the phone.
+  Future<void> pairCollar(String collarId) async {
+    final token = await api!.registerDevice(dog!.id, collarId);
+    await store.write('paired_collar', collarId);
+    await store.write('device_token', token);
+    pairStepPending = false;
+    notifyListeners();
+  }
+
+  void skipPairing() {
+    pairStepPending = false;
+    notifyListeners();
+  }
+
+  /// LGPD: deletes the account and every record on the server, then forgets it here.
+  Future<void> deleteAccount() async {
+    await api!.deleteMe();
+    for (final k in ['paired_collar', 'device_token']) {
+      await store.write(k, null);
+    }
+    await signOut();
   }
 
   Future<void> signOut() async {
     api?.token = null;
     dog = null;
+    me = null;
     await store.write('token', null);
     await store.write('dog', null);
     notifyListeners();

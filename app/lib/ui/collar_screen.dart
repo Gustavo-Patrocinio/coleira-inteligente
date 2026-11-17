@@ -1,14 +1,15 @@
-import 'dart:async';
+import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
-import '../api/api_client.dart';
+import '../api/day_summary.dart';
 import '../collar/collar_link.dart';
 import '../collar/sync_service.dart';
-import '../api/day_summary.dart';
 import '../collection/collection_screen.dart';
-import '../core/sync_protocol.dart';
 import 'app_state.dart';
+import 'onboarding.dart';
 
 class CollarScreen extends StatefulWidget {
   const CollarScreen({super.key, required this.link, required this.sync});
@@ -21,10 +22,7 @@ class CollarScreen extends StatefulWidget {
 
 class _CollarScreenState extends State<CollarScreen> {
   String? _paired;
-  bool _busy = false;
   String? _message;
-  final List<FoundCollar> _found = [];
-  StreamSubscription<FoundCollar>? _scan;
 
   @override
   void initState() {
@@ -32,59 +30,9 @@ class _CollarScreenState extends State<CollarScreen> {
     _loadPairing();
   }
 
-  @override
-  void dispose() {
-    _scan?.cancel();
-    super.dispose();
-  }
-
   Future<void> _loadPairing() async {
-    final store = AppScope.of(context).store;
-    final paired = await store.read('paired_collar');
-    if (mounted) {
-      setState(() {
-        _paired = paired;
-      });
-    }
-  }
-
-  void _startPairing() {
-    setState(() {
-      _found.clear();
-      _message = 'Looking for the collar…';
-    });
-    _scan?.cancel();
-    _scan = widget.link.scan(services: const [syncServiceUuid]).listen((c) {
-      if (_found.every((f) => f.id != c.id)) setState(() => _found.add(c));
-    });
-    Future.delayed(const Duration(seconds: 12), () async {
-      await widget.link.stopScan();
-      if (mounted) {
-        setState(
-          () => _message = _found.isEmpty ? 'No collar found nearby.' : null,
-        );
-      }
-    });
-  }
-
-  Future<void> _pair(FoundCollar c) async {
-    final s = AppScope.of(context);
-    await widget.link.stopScan();
-    setState(() => _busy = true);
-    try {
-      final token = await s.api!.registerDevice(s.dog!.id, c.id);
-      await s.store.write('paired_collar', c.id);
-      await s.store.write('device_token', token);
-      setState(() {
-        _paired = c.id;
-        _found.clear();
-        _message = 'Collar paired with ${s.dog!.name}.';
-      });
-    } on ApiException catch (e) {
-      setState(() => _message = 'Could not pair: ${e.message}');
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
+    final paired = await AppScope.of(context).store.read('paired_collar');
+    if (mounted) setState(() => _paired = paired);
   }
 
   Future<void> _syncNow() async {
@@ -98,9 +46,55 @@ class _CollarScreenState extends State<CollarScreen> {
     if (mounted) setState(() => _message = s.lastSyncMessage);
   }
 
+  Future<void> _export() async {
+    final s = AppScope.of(context);
+    try {
+      final json = await s.api!.exportMe();
+      final dir = await getTemporaryDirectory();
+      final f = File(
+        '${dir.path}${Platform.pathSeparator}collar-data-export.json',
+      );
+      await f.writeAsString(json);
+      await SharePlus.instance.share(ShareParams(files: [XFile(f.path)]));
+    } catch (e) {
+      if (mounted) setState(() => _message = 'Export failed: $e');
+    }
+  }
+
+  Future<void> _delete() async {
+    final s = AppScope.of(context);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Delete account?'),
+        content: const Text(
+          'Your account, your dogs and every recorded minute are deleted from the server '
+          'now. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('Delete everything'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await s.deleteAccount();
+    } catch (e) {
+      if (mounted) setState(() => _message = 'Could not delete: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
+    final text = Theme.of(context).textTheme;
     return Scaffold(
       appBar: AppBar(title: const Text('Collar')),
       body: ListView(
@@ -110,17 +104,13 @@ class _CollarScreenState extends State<CollarScreen> {
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
                     _paired == null ? 'No collar paired' : 'Collar paired',
-                    style: Theme.of(context).textTheme.titleMedium,
+                    style: text.titleMedium,
                   ),
-                  if (_paired != null)
-                    Text(
-                      _paired!,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
+                  if (_paired != null) Text(_paired!, style: text.bodySmall),
                   const SizedBox(height: 8),
                   const Text(
                     'At home the base station syncs on its own. Away from home, this phone '
@@ -129,27 +119,16 @@ class _CollarScreenState extends State<CollarScreen> {
                   if (s.lastSyncAt != null)
                     Text(
                       'Last synced ${formatAgo(s.lastSyncAt!)}',
-                      style: Theme.of(context).textTheme.bodySmall,
+                      style: text.bodySmall,
                     ),
                   const SizedBox(height: 12),
                   if (_paired == null)
-                    FilledButton.icon(
-                      onPressed: _busy ? null : _startPairing,
-                      icon: const Icon(Icons.link),
-                      label: const Text('Pair collar'),
-                    )
+                    PairCollarPanel(link: widget.link, onPaired: _loadPairing)
                   else
                     FilledButton.icon(
-                      onPressed: _busy || s.syncing ? null : _syncNow,
+                      onPressed: s.syncing ? null : _syncNow,
                       icon: const Icon(Icons.sync),
                       label: Text(s.syncing ? 'Syncing…' : 'Sync now'),
-                    ),
-                  for (final c in _found)
-                    ListTile(
-                      leading: const Icon(Icons.sensors),
-                      title: Text(c.name),
-                      subtitle: Text(c.id),
-                      onTap: _busy ? null : () => _pair(c),
                     ),
                   if (_message != null)
                     Padding(
@@ -174,6 +153,33 @@ class _CollarScreenState extends State<CollarScreen> {
                   builder: (_) => CollectionScreen(link: widget.link),
                 ),
               ),
+            ),
+          ),
+          Card(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const ListTile(
+                  leading: Icon(Icons.privacy_tip),
+                  title: Text('Your data'),
+                  subtitle: Text(
+                    'Stored on the server below. Download or delete it any time.',
+                  ),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.download),
+                  title: const Text('Download my data'),
+                  onTap: _export,
+                ),
+                ListTile(
+                  leading: Icon(
+                    Icons.delete_forever,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                  title: const Text('Delete account and all data'),
+                  onTap: _delete,
+                ),
+              ],
             ),
           ),
           Card(

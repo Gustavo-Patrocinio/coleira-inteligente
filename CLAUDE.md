@@ -354,7 +354,7 @@ arrives on its own.
 - [x] App: trends and alerts screens (with feedback), backed by the API; [ ] push notifications
 - [ ] **Base station (`basestation/`, ADR 0007):** ESP32 (e.g. XIAO ESP32-C3) as BLE central that pulls new summaries from the collar and uploads them over Wi-Fi to `/ingest`; Wi-Fi provisioning from the app over BLE; per-device credential; collar prefers the base station when both clients are present
 - [ ] Phone keeps working as fallback sync away from home
-- [x] Several dogs per account; privacy (LGPD): export (`GET /v1/me/export`) and deletion (`DELETE /v1/me`); [ ] consent screen in the app
+- [x] Several dogs per account; privacy (LGPD): export (`GET /v1/me/export`) and deletion (`DELETE /v1/me`); consent screen in the app, recorded on the server with its version (`PUT /v1/me/consent`, separate research opt-in); export/delete buttons in the app; per-IP rate limit on login/register
 - [x] Self-hostable with Docker Compose: `backend/DEPLOY.md` (Caddy HTTPS, nightly backups, restore tested locally); [ ] one shared instance for beta users
 
 **Done when:** a real alert fires correctly with your dog's data; repeated ingestion does
@@ -395,7 +395,7 @@ dog coming home, without opening the app.
 - [ ] Weight < 3% of the dog's weight for the smallest supported size; center of mass under the neck
 - [ ] Build guide with photos: parts list with links and prices, soldering, assembly, fit check
 - [ ] Prebuilt firmware releases (collar + base station) and a flashing guide for non-developers
-- [ ] App published (Android + iOS): onboarding that pairs the collar, creates the dog profile and provisions the base-station Wi-Fi, without help
+- [ ] App published (Android + iOS): onboarding that pairs the collar, creates the dog profile and provisions the base-station Wi-Fi, without help (onboarding written 2026-11-17: consent → dog → pair collar; Wi-Fi provisioning waits for the base station)
 - [ ] Model trained on 10–20+ dogs (Phase 1 + opt-in sessions from users), evaluated leave-one-dog-out
 - [ ] (Optional) audio fusion for `eating`/`drinking` (classes 5–6), turning the microphone on only when the IMU indicates head down + light movement
 - [ ] Beta: 10–20 owners outside the project use it for 1 month; collect issues and alert feedback

@@ -138,6 +138,26 @@ class IngestResult {
   final int rejected;
 }
 
+/// The logged-in account (GET /v1/me): which privacy notice version was accepted.
+class Me {
+  const Me({
+    required this.email,
+    this.consentVersion,
+    this.researchOptIn = false,
+  });
+  final String email;
+  final int? consentVersion;
+  final bool researchOptIn;
+
+  factory Me.fromJson(Map<String, dynamic> j) => Me(
+    email: j['email'] as String,
+    consentVersion: j['consent_version'] == null
+        ? null
+        : _int(j['consent_version']),
+    researchOptIn: j['research_opt_in'] == true,
+  );
+}
+
 class CollarApi {
   CollarApi({required this.baseUrl, http.Client? client, this.token})
     : _http = client ?? http.Client();
@@ -204,6 +224,25 @@ class CollarApi {
     '/v1/alerts/$alertId/feedback',
     body: {'feedback': useful ? 'useful' : 'false_alarm'},
   );
+
+  Future<Me> me() async => Me.fromJson(await _send('GET', '/v1/me'));
+
+  Future<Me> putConsent(int version, {required bool researchOptIn}) async =>
+      Me.fromJson(
+        await _send(
+          'PUT',
+          '/v1/me/consent',
+          body: {'version': version, 'research_opt_in': researchOptIn},
+        ),
+      );
+
+  /// Everything the server holds about the account (LGPD), as pretty JSON.
+  Future<String> exportMe() async =>
+      const JsonEncoder.withIndent('  ')
+          .convert(await _send('GET', '/v1/me/export'));
+
+  /// Deletes the account and all of its data on the server (LGPD).
+  Future<void> deleteMe() => _send('DELETE', '/v1/me');
 
   /// Uploads raw contract 4.7 records with the collar's device token.
   Future<IngestResult> ingest(

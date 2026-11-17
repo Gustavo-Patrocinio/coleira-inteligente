@@ -26,6 +26,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
       PORT: 3000
       ALERTS_EVERY_MIN: ${ALERTS_EVERY_MIN:-60}
+      TRUST_PROXY: "true" # behind Caddy: rate limits per real client IP
     depends_on:
       db:
         condition: service_healthy

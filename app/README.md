@@ -22,7 +22,7 @@ Screens follow the clickable prototype (`docs/product/app-prototype/`).
 | `lib/collar/` | `CollarLink` interface + `universal_ble` implementation (ADR 0012) |
 | `lib/collection/` | `SessionRecorder` (CSV + meta.json) and the recording screen |
 | `lib/api/` | backend client, day/timeline helpers, alert copy |
-| `lib/ui/` | login, home tabs, Today, Trends, Alerts, Collar |
+| `lib/ui/` | login, onboarding (consent, dog, pairing), home tabs, Today, Trends, Alerts, Collar |
 | `test/` | contract byte vectors (shared with Python/backend), recorder, API client, full widget flow |
 
 ```bash
@@ -59,4 +59,6 @@ allowed for the local network (iOS `NSAllowsLocalNetworking`); a public server m
 - [x] Phase 3 sync (contract 4.8): pair collar, "Sync now", upload via `api.ingest` (22 tests)
 - [x] Automatic sync when the app opens / returns to the foreground (throttled to 10 min);
       records kept on the phone so Today works offline and failed uploads are retried
-- [ ] Phase 4: push notifications, base-station Wi-Fi provisioning, consent screen (LGPD)
+- [x] First-run onboarding: privacy notice + consent (LGPD, recorded on the server) → dog → pair
+      collar; "Your data": download everything / delete the account
+- [ ] Phase 4: push notifications, base-station Wi-Fi provisioning

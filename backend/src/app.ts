@@ -17,6 +17,10 @@ export interface AppOptions {
   pool: pg.Pool;
   jwtSecret: string;
   logger?: boolean;
+  /** Behind a reverse proxy (Caddy), so req.ip is the client's address. */
+  trustProxy?: boolean;
+  /** Login/register attempts allowed per IP per 15 minutes. */
+  authAttemptsPer15Min?: number;
 }
 
 declare module "@fastify/jwt" {
@@ -28,8 +32,14 @@ declare module "@fastify/jwt" {
 
 const MAX_RECORDS_PER_BATCH = 7 * 1440; // a week of minutes
 
-export async function buildApp({ pool, jwtSecret, logger = false }: AppOptions) {
-  const app = Fastify({ logger, bodyLimit: 1024 * 1024 }).withTypeProvider<ZodTypeProvider>();
+export async function buildApp({
+  pool,
+  jwtSecret,
+  logger = false,
+  trustProxy = false,
+  authAttemptsPer15Min = 20,
+}: AppOptions) {
+  const app = Fastify({ logger, trustProxy, bodyLimit: 1024 * 1024 }).withTypeProvider<ZodTypeProvider>();
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
   await app.register(jwt, { secret: jwtSecret, sign: { expiresIn: "30d" } });
@@ -59,9 +69,24 @@ export async function buildApp({ pool, jwtSecret, logger = false }: AppOptions) 
   app.get("/health", async () => ({ ok: true }));
 
   // ------------------------------------------------------------------ auth
+  // Small per-IP limiter against password guessing (one process, so memory is enough).
+  const attempts = new Map<string, { n: number; resetAt: number }>();
+  const limitAuth = async (req: FastifyRequest, reply: FastifyReply) => {
+    const now = Date.now();
+    const a = attempts.get(req.ip);
+    if (!a || a.resetAt <= now) {
+      if (attempts.size > 10_000) attempts.clear();
+      attempts.set(req.ip, { n: 1, resetAt: now + 15 * 60_000 });
+      return;
+    }
+    if (++a.n > authAttemptsPer15Min) {
+      reply.header("retry-after", Math.ceil((a.resetAt - now) / 1000));
+      return reply.code(429).send({ error: "too many attempts, try again later" });
+    }
+  };
   const credentials = z.object({ email: z.string().email().max(200), password: z.string().min(10).max(200) });
 
-  app.post("/v1/auth/register", { schema: { body: credentials } }, async (req, reply) => {
+  app.post("/v1/auth/register", { preHandler: limitAuth, schema: { body: credentials } }, async (req, reply) => {
     const email = req.body.email.toLowerCase();
     const hash = await hashPassword(req.body.password);
     const r = await pool.query<{ id: string }>(
@@ -72,7 +97,7 @@ export async function buildApp({ pool, jwtSecret, logger = false }: AppOptions) 
     return reply.code(201).send({ token: app.jwt.sign({ sub: r.rows[0].id }) });
   });
 
-  app.post("/v1/auth/login", { schema: { body: credentials } }, async (req, reply) => {
+  app.post("/v1/auth/login", { preHandler: limitAuth, schema: { body: credentials } }, async (req, reply) => {
     const r = await pool.query<{ id: string; password_hash: string }>(
       "SELECT id, password_hash FROM users WHERE email = $1",
       [req.body.email.toLowerCase()],
@@ -275,11 +300,32 @@ export async function buildApp({ pool, jwtSecret, logger = false }: AppOptions) 
   );
 
   // ------------------------------------------------------------------ privacy (LGPD)
+  // ------------------------------------------------------------------ account / LGPD
+  const ME_COLUMNS = "id, email, created_at, consent_version, consent_at, research_opt_in";
+
+  app.get("/v1/me", { preHandler: requireUser }, async (req, reply) => {
+    const r = await pool.query(`SELECT ${ME_COLUMNS} FROM users WHERE id = $1`, [userId(req)]);
+    return r.rows[0] ?? reply.code(404).send({ error: "user not found" });
+  });
+
+  const consentBody = z.object({
+    version: z.number().int().positive(),
+    research_opt_in: z.boolean().default(false),
+  });
+  app.put("/v1/me/consent", { preHandler: requireUser, schema: { body: consentBody } }, async (req) => {
+    const r = await pool.query(
+      `UPDATE users SET consent_version = $2, consent_at = now(), research_opt_in = $3
+        WHERE id = $1 RETURNING ${ME_COLUMNS}`,
+      [userId(req), req.body.version, req.body.research_opt_in],
+    );
+    return r.rows[0];
+  });
+
   app.get("/v1/me/export", { preHandler: requireUser }, async (req) => {
     const uid = userId(req);
     const q = (sql: string) => pool.query(sql, [uid]).then((r) => r.rows);
     return {
-      user: (await q("SELECT id, email, created_at FROM users WHERE id = $1"))[0],
+      user: (await q(`SELECT ${ME_COLUMNS} FROM users WHERE id = $1`))[0],
       dogs: await q("SELECT * FROM dogs WHERE user_id = $1"),
       devices: await q("SELECT d.id, d.dog_id, d.serial, d.created_at FROM devices d JOIN dogs g ON g.id = d.dog_id WHERE g.user_id = $1"),
       daily_metrics: await q("SELECT m.* FROM daily_metrics m JOIN dogs g ON g.id = m.dog_id WHERE g.user_id = $1"),

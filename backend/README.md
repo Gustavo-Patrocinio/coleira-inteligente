@@ -35,10 +35,13 @@ Self-hosting on the internet with HTTPS (Caddy + Let's Encrypt), nightly backups
 | GET | `/v1/dogs/:id/trends?days=30` | user | daily metrics (active, scratching, night wake-ups, coverage) |
 | GET | `/v1/dogs/:id/alerts` | user | latest alerts |
 | POST | `/v1/alerts/:id/feedback` | user | `{feedback: useful \| false_alarm}` |
+| GET | `/v1/me` | user | account: email, accepted privacy notice version, research opt-in |
+| PUT | `/v1/me/consent` | user | `{version, research_opt_in}`: records consent (LGPD) with a timestamp |
 | GET | `/v1/me/export` | user | all of the user's data as JSON (LGPD) |
 | DELETE | `/v1/me` | user | deletes the account and everything under it (LGPD) |
 
-User endpoints take `Authorization: Bearer <jwt>`; ingestion takes `Authorization: Bearer
+Login and register are limited to 20 attempts per IP per 15 minutes (`TRUST_PROXY=true` behind
+Caddy so the real client IP counts). User endpoints take `Authorization: Bearer <jwt>`; ingestion takes `Authorization: Bearer
 dev_...`. A dog that is not yours is a 404, never a 403, so IDs reveal nothing.
 
 ## Design
@@ -58,5 +61,4 @@ dev_...`. A dog that is not yours is a 404, never a 403, so IDs reveal nothing.
 ## Not done yet
 
 - Push notifications (Firebase Cloud Messaging) when an alert is created.
-- Rate limiting on the auth routes (HTTPS is handled by Caddy, see DEPLOY.md).
 - Hourly "normal band" endpoint for the app's timeline (data is already aggregated).

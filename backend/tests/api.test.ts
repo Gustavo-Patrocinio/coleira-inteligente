@@ -190,4 +190,35 @@ describe.runIf(() => available)("API with a real database", () => {
     );
     expect(left.rows[0].n).toBe(0);
   });
+
+  it("records consent (LGPD) and the separate research opt-in", async () => {
+    const owner = await user("consent@example.com");
+    const before = await app.inject({ method: "GET", url: "/v1/me", headers: owner });
+    expect(before.json()).toMatchObject({ email: "consent@example.com", consent_version: null, research_opt_in: false });
+
+    const put = await app.inject({
+      method: "PUT",
+      url: "/v1/me/consent",
+      headers: owner,
+      payload: { version: 1, research_opt_in: true },
+    });
+    expect(put.statusCode).toBe(200);
+    expect(put.json()).toMatchObject({ consent_version: 1, research_opt_in: true });
+    expect(put.json().consent_at).toBeTruthy();
+
+    const exp = await app.inject({ method: "GET", url: "/v1/me/export", headers: owner });
+    expect(exp.json().user).toMatchObject({ consent_version: 1, research_opt_in: true });
+    expect(exp.json().user.password_hash).toBeUndefined();
+  });
+
+  it("rate-limits login attempts per IP", async () => {
+    const limited = await buildApp({ pool, jwtSecret: "test-secret-0123456789", authAttemptsPer15Min: 3 });
+    const tryLogin = () =>
+      limited.inject({ method: "POST", url: "/v1/auth/login", payload: { email: "nobody@example.com", password: "wrong password" } });
+    for (let i = 0; i < 3; i++) expect((await tryLogin()).statusCode).toBe(401);
+    const blocked = await tryLogin();
+    expect(blocked.statusCode).toBe(429);
+    expect(Number(blocked.headers["retry-after"])).toBeGreaterThan(0);
+    await limited.close();
+  });
 });
