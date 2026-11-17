@@ -234,10 +234,11 @@ Little-endian, v1 (ADR 0001):
 - [ ] Variar dias, horários e pisos
 
 **Ferramenta de rotulagem `tools/labeler/`:**
-- [ ] Carregar vídeo + CSV; gráfico uPlot com cursor sincronizado ao vídeo
-- [ ] Alinhamento usando as batidinhas do início e do fim (offset + correção de deriva linear); gravar `sync_taps` no `meta.json`
-- [ ] Atalhos de teclado para marcar início/fim por classe
-- [ ] Exportar no formato da seção 4.6
+- [x] Carregar vídeo + CSV; gráfico uPlot com cursor sincronizado ao vídeo
+- [x] Alinhamento usando as batidinhas do início e do fim (offset + correção de deriva linear); gravar `sync_taps` no `meta.json`
+- [x] Atalhos de teclado para marcar início/fim por classe
+- [x] Exportar no formato da seção 4.6
+- (testado com sessão sintética via `ml/scripts/make_synthetic_session.py`; falta validar com uma sessão real)
 
 **Fechamento:**
 - [ ] Rodar o modelo da Fase 0 nos dados próprios e registrar a queda (domain gap) em `docs/results.md`
@@ -368,5 +369,5 @@ Little-endian, v1 (ADR 0001):
 ## 10. Status atual
 
 - **Fase atual:** 1 (Fase 0 concluída em 2026-11-16)
-- **Próxima tarefa:** enquanto o hardware não chega: ferramenta de rotulagem (`tools/labeler/`) e protocolo de coleta; depois, firmware do logger
+- **Próxima tarefa:** enquanto o hardware não chega: protocolo de coleta (`docs/protocols/coleta.md`); depois, firmware do logger
 - **Hardware:** XIAO nRF52840 Sense + Raspberry Pi Pico H encomendados (AliExpress, previsão 27/nov–04/dez/2026); bateria, jumpers e kit de solda a comprar no Brasil
