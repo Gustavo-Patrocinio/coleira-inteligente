@@ -5,7 +5,10 @@ running, scratching, shaking, and later eating and drinking), learns what is nor
 *that* dog, and warns the owner when something changes: *"scratched 3× more than usual"*,
 *"restless night"*, *"activity 40% below normal for 3 days"*.
 
-Built as a product, not a demo: every decision is measured, written down as an
+**Open and buildable by anyone, for any dog** ([ADR 0009](docs/decisions/0009-open-project-for-any-dog.md)):
+the goal is that you can order the parts, follow the guide, flash the firmware, install the
+app and use it with your own dog. A ready-made product is a later goal. Built like a
+product, not a demo: every decision is measured, written down as an
 [ADR](docs/decisions/), and every phase ends with an objective done criterion.
 
 ![System architecture](docs/images/architecture.svg)
@@ -125,7 +128,7 @@ firmware/        Zephyr / nRF Connect SDK (Phase 1+)
 basestation/     ESP32 home base station (Phase 4)
 app/             Flutter app (Phase 1+)
 backend/         Fastify + TimescaleDB (Phase 4)
-hardware/        enclosure CAD and custom PCB (Phase 6)
+hardware/        enclosure CAD (Phase 6) and custom PCB (Phase 7)
 docs/            ADRs, results, dataset notes, product indicators
 ```
 
@@ -173,6 +176,7 @@ uses real signal, shows the behavior on screen, and simulates clock drift and pa
 | [0006](docs/decisions/0006-keras-for-the-cnn.md) | Keras/TensorFlow for a reliable int8 TFLite path |
 | [0007](docs/decisions/0007-data-sync-architecture.md) | Home Wi-Fi base station + phone over BLE (Wi-Fi on the collar kept as an option) |
 | [0008](docs/decisions/0008-english-class-names.md) | English class names, stable IDs |
+| [0009](docs/decisions/0009-open-project-for-any-dog.md) | Open project for any dog first, product later |
 
 ---
 
@@ -181,12 +185,16 @@ uses real signal, shows the behavior on screen, and simulates clock drift and pa
 | Phase | Goal | Done when | Status |
 |---|---|---|---|
 | 0 | ML pipeline on a public dataset | int8 CNN ≥ 85% balanced acc. on unseen dogs, < 64 KB | ✅ 0.957, 18.8 KB |
-| 1 | Collect and label data from our own dog | ≥ 2 h labeled, ≥ 3 min per class, < 1% packet loss | 🚧 labeler done, hardware shipping |
-| 2 | Model running on the chip | F1 ≥ 0.85 (states), ≥ 0.70 (events), inference < 50 ms | |
+| 1 | Collect and label data from real dogs | ≥ 2 h labeled from ≥ 5 dogs, ≥ 3 min per class, < 1% packet loss | 🚧 labeler done, hardware shipping |
+| 2 | Model running on the chip | F1 ≥ 0.85 (states), ≥ 0.70 (events) on unseen dogs, inference < 50 ms | |
 | 3 | Wireless, full day on battery, OTA | 24 h recorded, lossless sync, OTA tested | |
 | 4 | Backend, alerts, home base station | a real alert fires; no duplicates; data arrives on its own | |
 | 5 | Two-level classification for battery life | ≥ 14 days measured in the field | |
-| 6 | Sealed product, custom PCB | 1 month of daily use without intervention | |
+| 6 | Open release + beta | 10+ owners for a month, 3+ collars built by others from the docs | |
+| 7 | Product (later goal) | production design, certification, viable cost per unit | |
+
+**Want to help?** Once Phase 1 hardware works, the most valuable contribution is labeled
+data from more dogs (all sizes and breeds). A contribution guide will follow.
 
 The detailed checklist lives in [CLAUDE.md](CLAUDE.md#7-plan-by-phase).
 

@@ -15,8 +15,9 @@ home base station (Wi-Fi) or to the phone app, which send them to a backend. The
 learns each dog's normal pattern and raises alerts ("scratched 3× more than usual",
 "activity 40% below normal").
 
-**Goal:** do it right, like a product, not a college prototype. Every decision is measured
-and documented.
+**Goal:** an **open project anyone can build and use with any dog**, done right like a
+product, not a college prototype; selling it as a ready-made product is a later goal
+(ADR 0009). Every decision is measured and documented.
 
 **Principles:**
 1. **Measure, don't guess:** accuracy with honest splits, power measured with a current
@@ -26,6 +27,8 @@ and documented.
    consequences).
 4. **Animal welfare above all:** weight, comfort, skin irritation, and never forcing
    behavior to collect data.
+5. **Works for any dog:** data from many dogs, evaluation on unseen dogs, hardware and app
+   that a non-technical owner can set up (ADR 0009).
 
 ---
 
@@ -88,7 +91,7 @@ coleira-inteligente/
 │   └── labeler/              # web labeling tool (HTML/JS + uPlot)
 ├── hardware/
 │   ├── cad/                  # enclosure (sources + STL/STEP)
-│   └── pcb/                  # KiCad (Phase 6)
+│   └── pcb/                  # KiCad (Phase 7)
 └── docs/
     ├── decisions/            # ADRs
     ├── product/              # owner-facing indicators and screens
@@ -240,8 +243,9 @@ class or field → new `version`.
 
 ---
 
-### Phase 1: collection and labeling with your own dog
-**Goal:** 2–3 h of our own data synced with video, including scratching and shaking.
+### Phase 1: collection and labeling with real dogs
+**Goal:** 2–3 h of our own data synced with video, including scratching and shaking, from
+the author's dog **and at least 4 other dogs** of different sizes (ADR 0009).
 
 **Hardware:**
 - [ ] Seeed XIAO nRF52840 Sense (6-axis IMU + microphone + charger on board). Its IMU is an LSM6DS3TR-C, **without MLC**. The MLC only arrives with the IMU swap in Phase 5
@@ -267,7 +271,8 @@ class or field → new `version`.
 - [ ] Long sessions to capture spontaneous behaviors (scratching); record after a bath (shaking)
 - [ ] Vary days, times and floors
 - [ ] Record 2–3 **nights** with a night-vision camera: ground truth for asleep × lying awake and breath counting (see `docs/product/indicators.md`, *Sleep*)
-- [ ] Battery and water safety rules (charge off the dog, discard swollen cells, no immersion until Phase 6)
+- [ ] Battery and water safety rules (charge off the dog, discard swollen cells, no immersion until the sealed case)
+- [ ] Other dogs: ≥ 4 besides the author's, covering small / medium / large; a short written consent from each owner (what is recorded, how it is used, right to delete); `dog_id` + size/breed/weight in `meta.json` notes
 
 **Labeling tool `tools/labeler/`:**
 - [x] Load video + CSV; uPlot chart with cursor synced to the video
@@ -279,7 +284,7 @@ class or field → new `version`.
 **Wrap-up:**
 - [ ] Run the Phase 0 model on our own data and record the drop (domain gap) in `docs/results.md`
 
-**Done when:** ≥ 2 h labeled, ≥ 3 min accumulated for each class 0–4, packet loss < 1%.
+**Done when:** ≥ 2 h labeled from ≥ 5 dogs, ≥ 3 min accumulated for each class 0–4, packet loss < 1%.
 
 ---
 
@@ -287,14 +292,14 @@ class or field → new `version`.
 **Goal:** live classification inside the nRF matching the video.
 
 - [ ] Fine-tuning: pre-train on public data + adapt on our own data (classes 0–4)
-- [ ] Evaluation split by session/day
+- [ ] Evaluation split by dog (leave-one-dog-out) and by session/day
 - [ ] Export int8 `.tflite` → C array (`models/`)
 - [ ] `firmware/app/`: integrate TFLite Micro; size the tensor arena
 - [ ] Measure inference time and RAM used
 - [ ] Smoothing per section 4.3: majority for states, event detection for 3–4; calibrate `p_event`/`n_min` on a validation session; unit tests with synthetic sequences
 - [ ] Live test: class printed on serial vs video, on a new session
 
-**Done when:** F1 ≥ 0.85 on classes 0–2 and ≥ 0.70 on scratching/shaking on a never-seen session; inference < 50 ms.
+**Done when:** F1 ≥ 0.85 on classes 0–2 and ≥ 0.70 on scratching/shaking on a never-seen session **and on never-seen dogs**; inference < 50 ms.
 
 ---
 
@@ -330,6 +335,8 @@ arrives on its own.
 - [ ] App: trends and alerts screens
 - [ ] **Base station (`basestation/`, ADR 0007):** ESP32 (e.g. XIAO ESP32-C3) as BLE central that pulls new summaries from the collar and uploads them over Wi-Fi to `/ingest`; Wi-Fi provisioning from the app over BLE; per-device credential; collar prefers the base station when both clients are present
 - [ ] Phone keeps working as fallback sync away from home
+- [ ] Several dogs per account; privacy (LGPD): consent for data use, export and deletion of one's data
+- [ ] Self-hostable with Docker Compose (documented), plus one shared instance for beta users
 
 **Done when:** a real alert fires correctly with your dog's data; repeated ingestion does
 not duplicate; with the base station on, data reaches the backend within minutes of the
@@ -362,17 +369,37 @@ dog coming home, without opening the app.
 
 ---
 
-### Phase 6: product
-**Goal:** something you would use every day.
+### Phase 6: open release + beta (path A, ADR 0009)
+**Goal:** anyone can build it from the docs and use it with their dog every day.
 
-- [ ] Final case: IP67 sealing (O-ring), PETG/SLA + outer TPU layer against impact and bites
-- [ ] Magnetic pogo-pin charging (no exposed USB)
-- [ ] Weight < 3% of the dog's weight; center of mass under the neck
-- [ ] Custom KiCad PCB: nRF52840 module + IMU with MLC + charger + fuel gauge + antenna per the module reference. Prefer a module **already certified by Anatel**: it barely changes the cost and greatly simplifies product certification in Brazil
+- [ ] DIY enclosure: 3D-printable, sealed (O-ring), outer TPU layer against impact and bites, **universal clip** for collars of any width; STEP + STL published
+- [ ] Weight < 3% of the dog's weight for the smallest supported size; center of mass under the neck
+- [ ] Build guide with photos: parts list with links and prices, soldering, assembly, fit check
+- [ ] Prebuilt firmware releases (collar + base station) and a flashing guide for non-developers
+- [ ] App published (Android + iOS): onboarding that pairs the collar, creates the dog profile and provisions the base-station Wi-Fi, without help
+- [ ] Model trained on 10–20+ dogs (Phase 1 + opt-in sessions from users), evaluated leave-one-dog-out
 - [ ] (Optional) audio fusion for `eating`/`drinking` (classes 5–6), turning the microphone on only when the IMU indicates head down + light movement
-- [ ] Final README: photos, demo video, accuracy and energy charts, decisions
+- [ ] Beta: 10–20 owners outside the project use it for 1 month; collect issues and alert feedback
+- [ ] Troubleshooting guide and privacy policy; app copy never makes medical claims
+- [ ] README: photos, demo video, accuracy and energy charts, decisions
 
-**Done when:** a sealed collar running day to day for 1 month without intervention.
+**Done when:** ≥ 10 beta owners used it for 1 month, at least 3 collars were built by
+other people from the docs alone, and accuracy on beta dogs is reported.
+
+---
+
+### Phase 7: product (path B, later goal)
+**Goal:** a ready-made device that can be sold.
+
+- [ ] Custom KiCad PCB: nRF52840 module + IMU with MLC + charger + fuel gauge + antenna per the module reference. Prefer a module **already certified by Anatel**: it barely changes the cost and greatly simplifies product certification in Brazil
+- [ ] Magnetic pogo-pin charging (no exposed USB)
+- [ ] Production enclosure (injection molding or SLA at volume), IP67 tested
+- [ ] Cost model per unit (BOM, assembly, enclosure, packaging) and hosting cost per user
+- [ ] Certification: Anatel (collar and base station), battery safety
+- [ ] Company, support channel, warranty
+
+**Done when:** a sealed collar running day to day for 1 month without intervention, built
+from the production design, with a cost per unit that allows selling it.
 
 ---
 
@@ -388,8 +415,9 @@ dog coming home, without opening the app.
 | Seeed XIAO ESP32-C3 (or similar ESP32) | 4 | Home base station (ADR 0007) |
 | LSM6DSOX or LSM6DSV16X breakout | 5 | Machine Learning Core |
 | MAX17048 breakout | 5 | Fuel gauge |
-| Magnetic pogo pins (2 or 4 pins) | 6 | Sealed charging |
+| Second XIAO nRF52840 Sense | 1 | Collect from other dogs in parallel / spare |
 | O-ring | 6 | Size it in CAD |
+| Magnetic pogo pins (2 or 4 pins) | 7 | Sealed charging |
 
 ---
 
@@ -405,7 +433,10 @@ dog coming home, without opening the app.
 | Clock drift misaligns IMU and video | Taps at start and end + linear correction (ADR 0003) |
 | Steep Zephyr learning curve | Arduino plan B for the logger only; official Nordic samples as a base |
 | BLE in the background on iOS | Home base station syncs on its own (ADR 0007); sync on app open; days of buffer in flash |
-| Water/bites | Phase 6; until then, supervised use |
+| Water/bites | Sealed DIY case in Phase 6; until then, supervised use |
+| Model only works for the author's dog | Data from ≥ 5 dogs in Phase 1 and 10–20+ by Phase 6; leave-one-dog-out evaluation (ADR 0009) |
+| Others cannot build or set it up | Build and flashing guides, prebuilt firmware, app onboarding; at least 3 external builds before Phase 6 is done |
+| Medical-claim or privacy issues with other users | "Talk to your vet" framing, no diagnosis; LGPD consent, export and deletion |
 | Dog discomfort | Gradual adaptation, minimal weight, check the skin, stop if there is discomfort |
 
 ---
@@ -413,5 +444,6 @@ dog coming home, without opening the app.
 ## 10. Current status
 
 - **Current phase:** 1 (Phase 0 completed 2026-11-16)
-- **Next task:** while the hardware ships: collection protocol (`docs/protocols/collection.md`); then the logger firmware
+- **Goal:** open project for any dog first, product later (ADR 0009)
+- **Next task:** while the hardware ships: collection protocol (`docs/protocols/collection.md`, including consent for other dogs' owners); then the logger firmware
 - **Hardware:** XIAO nRF52840 Sense + Raspberry Pi Pico H ordered (AliExpress, ETA Nov 27 – Dec 4, 2026); battery, jumpers and soldering kit to buy locally
