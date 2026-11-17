@@ -325,7 +325,7 @@ the author's dog **and at least 4 other dogs** of different sizes (ADR 0009).
 ### Phase 3: wireless autonomy
 **Goal:** a whole day recorded on battery alone.
 
-- [ ] MCUboot + BLE DFU (OTA) working **before** everything else (flash MCUboot via SWD, since the XIAO ships with Adafruit's UF2 bootloader). Built 2026-11-17 as the `firmware/app/ota/` variant (ADR 0015: update slot in the 2 MB QSPI flash, self-confirm after a health check, signed images); not run on a board yet
+- [ ] MCUboot + BLE DFU (OTA) working **before** everything else (flash MCUboot via SWD, since the XIAO ships with Adafruit's UF2 bootloader). Built 2026-11-17 as the `firmware/app/ota/` variant (ADR 0015: update slot in the 2 MB QSPI flash, self-confirm after a health check, signed images); the app updates the collar from the newest GitHub release (Dart SMP client); not run on a board yet
 - [x] Per-minute summary (section 4.7) written to flash: FCB on a 416 KB partition, ~13 days (ADR 0013; `firmware/app`, builds, not run on a board yet)
 - [x] BLE sync service: the client asks "since minute X" and receives the batch (contract 4.8; PC client `ml/scripts/sync_ble.py` emulates the base station and uploads)
 - [x] Raw dump mode, enabled from the app (to keep collecting dataset): the collar firmware serves the logger's raw service while subscribed; the app's collection mode finds either firmware (ADR 0014; builds, not run on a board yet)
@@ -346,7 +346,7 @@ arrives on its own.
 - [x] Tables: `users`, `dogs`, `devices`, `activity_minute` (hypertable), `alerts`, plus `daily_metrics`
 - [x] Continuous aggregate per hour (`activity_hourly`); daily metrics computed in local time by the job
 - [x] Fastify + Zod API: auth (JWT), dogs/devices, **idempotent** batch `POST /v1/ingest` (key `device_id + minute_ts`), recording which path delivered each batch (base station or app)
-- [x] Query endpoints: daily routine (15-min blocks), trends; [ ] sleep summary beyond night wake-ups
+- [x] Query endpoints: daily routine (15-min blocks), trends; sleep estimated from movement (`GET /v1/dogs/:id/sleep/:day`: bedtime, wake time, rest, awakenings, longest stretch, naps; `src/sleep.ts`); [ ] show it in the app
 - [x] Baseline job: daily totals vs **median + MAD** of the previous 28 days, same day type (ADR 0011, replaces the per-hour baseline for alerts)
 - [x] Alerts by robust z-score (|z| > 3) for total activity, scratching time and night wake-ups; ≥ 14 complete days of history; incomplete days skipped
 - [x] "Made sense / false alarm" feedback on each alert
@@ -400,7 +400,7 @@ dog coming home, without opening the app.
 - [ ] Model trained on 10–20+ dogs (Phase 1 + opt-in sessions from users), evaluated leave-one-dog-out
 - [ ] (Optional) audio fusion for `eating`/`drinking` (classes 5–6), turning the microphone on only when the IMU indicates head down + light movement
 - [ ] Beta: 10–20 owners outside the project use it for 1 month; collect issues and alert feedback
-- [ ] Troubleshooting guide and privacy policy; app copy never makes medical claims
+- [ ] Troubleshooting guide and privacy policy; app copy never makes medical claims (written 2026-11-17: `docs/troubleshooting.md`, `docs/privacy-policy.md` as a template for each server operator; the app now clears its local minutes on sign-out; review after the beta)
 - [ ] README: photos, demo video, accuracy and energy charts, decisions
 
 **Done when:** ≥ 10 beta owners used it for 1 month, at least 3 collars were built by

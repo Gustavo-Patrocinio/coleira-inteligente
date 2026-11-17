@@ -224,7 +224,9 @@ gauge and an ESP32 base station.
 **Build your own:** [step-by-step build guide](docs/build-guide.md) (battery safety, soldering,
 assembly, pairing, fitting on the dog) and a [3D-printable case](hardware/cad/README.md)
 (parametric, STEP + STL, for 16/20/25 mm collars, ~20 g in total). Ready-made firmware files
-come with each GitHub release, flashed by drag-and-drop ([flashing guide](docs/flashing.md)).
+come with each GitHub release, flashed by drag-and-drop ([flashing guide](docs/flashing.md));
+problems: [troubleshooting](docs/troubleshooting.md); running a server for others:
+[privacy policy template](docs/privacy-policy.md).
 
 ![enclosure v1](docs/images/enclosure_v1.png)
 
