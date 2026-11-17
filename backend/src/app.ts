@@ -12,6 +12,7 @@ import { z } from "zod";
 import { CLASS_COLUMNS, decodeRecords } from "./summary.js";
 import { hashPassword, hashToken, newDeviceToken, verifyPassword } from "./security.js";
 import { localParts } from "./metrics.js";
+import { sleepSummary } from "./sleep.js";
 
 export interface AppOptions {
   pool: pg.Pool;
@@ -247,6 +248,48 @@ export async function buildApp({
         totals,
         night_wakeups: daily?.night_wakeups ?? null,
         blocks: r.rows,
+      };
+    },
+  );
+
+  // Sleep estimated from movement for the night ending on :day plus that day's naps
+  app.get(
+    "/v1/dogs/:id/sleep/:day",
+    { preHandler: requireUser, schema: { params: idParam.extend({ day: z.string().date() }) } },
+    async (req, reply) => {
+      const dog = await ownDog(req, reply, req.params.id);
+      if (!dog) return;
+      const r = await pool.query(
+        `SELECT a.minute_ts, a.still_s,
+                (a.walking_s + a.running_s + a.scratching_s + a.shaking_s + a.eating_s + a.drinking_s)
+                  AS moving_s
+           FROM activity_minute a JOIN devices d ON d.id = a.device_id
+          WHERE d.dog_id = $1
+            AND a.minute_ts >= (($2::date - 1) + TIME '20:00') AT TIME ZONE $3
+            AND a.minute_ts < ($2::date + TIME '20:00') AT TIME ZONE $3
+          ORDER BY a.minute_ts`,
+        [dog.id, req.params.day, dog.timezone],
+      );
+      const s = sleepSummary(
+        r.rows.map((x) => ({ minuteTs: x.minute_ts, stillS: x.still_s, movingS: x.moving_s })),
+        req.params.day,
+        dog.timezone,
+      );
+      return {
+        day: s.day,
+        timezone: dog.timezone,
+        method: s.method,
+        night_coverage: Math.round(s.nightCoverage * 1000) / 1000,
+        night: s.night && {
+          bedtime: s.night.bedtime,
+          wake_time: s.night.wakeTime,
+          in_bed_min: s.night.inBedMin,
+          rest_min: s.night.restMin,
+          awakenings: s.night.awakenings,
+          longest_rest_min: s.night.longestRestMin,
+          missing_min: s.night.missingMin,
+        },
+        naps: { count: s.naps.count, total_min: s.naps.totalMin },
       };
     },
   );

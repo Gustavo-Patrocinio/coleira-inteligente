@@ -32,6 +32,7 @@ Self-hosting on the internet with HTTPS (Caddy + Let's Encrypt), nightly backups
 | POST | `/v1/dogs/:id/devices` | user | `{serial}` → `{device_id, token}` (device token shown once) |
 | POST | `/v1/ingest` | device | `{records: base64 of N × 15-byte records, via: base_station \| app}` → `{received, inserted, duplicates, rejected[]}` |
 | GET | `/v1/dogs/:id/days/:day` | user | local day: totals per class, 15-min blocks, night wake-ups |
+| GET | `/v1/dogs/:id/sleep/:day` | user | sleep estimated from movement: the night ending on `day` (bedtime, wake time, rest, awakenings, longest stretch, coverage) and that day's naps |
 | GET | `/v1/dogs/:id/trends?days=30` | user | daily metrics (active, scratching, night wake-ups, coverage) |
 | GET | `/v1/dogs/:id/alerts` | user | latest alerts |
 | POST | `/v1/alerts/:id/feedback` | user | `{feedback: useful \| false_alarm}` |

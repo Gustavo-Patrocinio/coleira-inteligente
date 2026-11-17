@@ -132,6 +132,30 @@ describe.runIf(() => available)("API with a real database", () => {
     expect(next.json().blocks).toEqual([]);
   });
 
+  it("estimates the night's sleep in the dog's time zone", async () => {
+    const owner = await user("sleep@example.com");
+    const { dogId, device } = await dogWithDevice(owner, "AA:00:00:00:00:07");
+    // Oct 5 21:00 → Oct 6 07:00 local: active until 22:00, rest with one 4-min walk at 02:00
+    const recs: MinuteRecord[] = [];
+    for (let m = 21 * 60; m < 34 * 60; m++) {
+      const day = m < 24 * 60 ? "2026-10-05" : "2026-10-06";
+      const local = m % (24 * 60);
+      const awake = m < 22 * 60 || (m >= 26 * 60 && m < 26 * 60 + 4) || m >= 31 * 60;
+      recs.push(minute(spTs(day, local), awake ? 40 : 0));
+    }
+    expect((await ingest(device, recs)).json().inserted).toBe(recs.length);
+    const r = await app.inject({ method: "GET", url: `/v1/dogs/${dogId}/sleep/2026-10-06`, headers: owner });
+    expect(r.statusCode).toBe(200);
+    expect(r.json().night).toMatchObject({
+      bedtime: "2026-10-06T01:00:00.000Z", // 22:00 local
+      wake_time: "2026-10-06T10:00:00.000Z", // 07:00 local
+      in_bed_min: 540,
+      rest_min: 536,
+      awakenings: 1,
+    });
+    expect(r.json().method).toBe("estimated from movement");
+  });
+
   it("baseline job raises a scratching alert once, and the owner can give feedback", async () => {
     const owner = await user("alerts@example.com");
     const { dogId, device } = await dogWithDevice(owner, "AA:00:00:00:00:05");
