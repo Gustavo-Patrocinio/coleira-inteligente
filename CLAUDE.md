@@ -232,6 +232,7 @@ Little-endian, v1 (ADR 0001):
 - [ ] Sessões de 10–20 min: dormindo, passeio com guia, brincadeira, ração, água
 - [ ] Sessões longas para capturar comportamentos espontâneos (coçar); gravar depois do banho (chacoalhar)
 - [ ] Variar dias, horários e pisos
+- [ ] Gravar 2–3 **noites** com câmera de visão noturna: gabarito de dormindo × deitado acordado e contagem de respirações (ver `docs/product/indicadores.md`, *Sono*)
 
 **Ferramenta de rotulagem `tools/labeler/`:**
 - [x] Carregar vídeo + CSV; gráfico uPlot com cursor sincronizado ao vídeo
