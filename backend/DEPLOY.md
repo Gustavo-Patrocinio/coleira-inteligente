@@ -1,0 +1,92 @@
+# Putting the backend on the internet (HTTPS)
+
+At home, the app can talk to the backend on your computer over the LAN
+(`http://192.168.x.x:3000`). To use the app away from home, or to let the base station and
+other people's phones reach it, the backend needs a public address with **HTTPS** (iOS refuses
+plain HTTP outside the local network).
+
+`backend/deploy/` runs everything with Docker Compose:
+
+| Container | What it does |
+|---|---|
+| `db` | Postgres 16 + TimescaleDB. No public port |
+| `api` | this backend (`Dockerfile`): migrations on start, alerts job every hour |
+| `caddy` | HTTPS reverse proxy; gets and renews the Let's Encrypt certificate on its own |
+| `backup` | `pg_dump` every night into `deploy/backups/`, keeps 14 days |
+
+Tested locally on 2026-11-17: image builds, migrations run, `/health` answers, register works,
+the nightly dump restores into an empty database (steps below).
+
+## 1. A server
+
+Any Linux VPS with 1 vCPU, 1 GB RAM and 20 GB disk is plenty for tens of dogs (a dog is
+~21 KB of data per day). Examples: Hetzner CX22, Oracle Cloud free tier (Ampere), DigitalOcean,
+Magalu Cloud. A Raspberry Pi 4 at home also works if your router can forward ports 80 and 443.
+
+Install Docker:
+
+```bash
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER   # log out and back in
+```
+
+Open ports **80** and **443** (TCP, plus 443/UDP for HTTP/3) in the provider's firewall.
+Port 80 is needed: Let's Encrypt checks the domain through it.
+
+## 2. A domain name
+
+Create a DNS **A record** (and AAAA for IPv6) pointing a name at the server's IP, e.g.
+`collar.yourdomain.com`. No domain? A free subdomain from DuckDNS (`yourname.duckdns.org`)
+works. Wait until `ping collar.yourdomain.com` answers with the server's IP.
+
+## 3. Start it
+
+```bash
+git clone https://github.com/Gustavo-Patrocinio/coleira-inteligente.git
+cd coleira-inteligente/backend/deploy
+cp .env.example .env
+nano .env        # DOMAIN=collar.yourdomain.com, and two secrets: openssl rand -hex 32
+docker compose up -d --build
+docker compose logs -f caddy     # wait for "certificate obtained successfully"
+curl https://collar.yourdomain.com/health    # {"ok":true}
+```
+
+On the phone's login screen, use `https://collar.yourdomain.com` as the server.
+
+## 4. Updating
+
+```bash
+cd coleira-inteligente && git pull
+cd backend/deploy && docker compose up -d --build api
+```
+
+Migrations run when the api starts; they are additive and run once.
+
+## 5. Backups and restore
+
+Dumps land in `backend/deploy/backups/collar-YYYY-MM-DD.dump`. A backup only on the same
+server is not a backup: copy them elsewhere (e.g. `rclone` to cloud storage, or `scp` home).
+
+Restore into a fresh database (TimescaleDB needs the pre/post restore calls):
+
+```bash
+docker compose exec db psql -U collar -c "CREATE DATABASE restored"
+docker compose exec db psql -U collar -d restored -c "SELECT timescaledb_pre_restore();"
+docker compose cp backups/collar-2026-11-17.dump db:/tmp/b.dump
+docker compose exec db pg_restore -U collar -d restored /tmp/b.dump
+docker compose exec db psql -U collar -d restored -c "SELECT timescaledb_post_restore();"
+```
+
+Then point `DATABASE_URL` at `restored` (or rename the databases) and restart `api`.
+`pg_dump` prints warnings about circular foreign keys on TimescaleDB's catalog tables; they
+are expected and the restore above handles them.
+
+## 6. Security checklist
+
+- [ ] `.env` has long random `POSTGRES_PASSWORD` and `JWT_SECRET` (never commit it; changing
+      `JWT_SECRET` logs everyone out)
+- [ ] Only ports 22, 80 and 443 open; SSH with keys, password login off
+- [ ] Unattended OS security updates on (`sudo apt install unattended-upgrades`)
+- [ ] Backups copied off the server, and a restore tested once
+- [ ] If other people use your instance: the privacy notice and consent in the app (LGPD),
+      and `DELETE /v1/me` works for them (it deletes the account and all its data)

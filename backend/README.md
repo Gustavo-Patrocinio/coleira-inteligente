@@ -17,7 +17,8 @@ npm test                      # unit + integration tests (uses a throwaway datab
 npm run typecheck
 ```
 
-Self-hosting: the same `docker-compose.yml` plus `npm start` behind HTTPS (e.g. Caddy).
+Self-hosting on the internet with HTTPS (Caddy + Let's Encrypt), nightly backups and restore:
+[DEPLOY.md](DEPLOY.md) (`deploy/docker-compose.yml`).
 
 ## API
 
@@ -57,5 +58,5 @@ dev_...`. A dog that is not yours is a 404, never a 403, so IDs reveal nothing.
 ## Not done yet
 
 - Push notifications (Firebase Cloud Messaging) when an alert is created.
-- Rate limiting and HTTPS termination (deploy concern).
+- Rate limiting on the auth routes (HTTPS is handled by Caddy, see DEPLOY.md).
 - Hourly "normal band" endpoint for the app's timeline (data is already aggregated).

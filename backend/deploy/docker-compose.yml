@@ -1,0 +1,74 @@
+# Self-hosted Collar backend with automatic HTTPS (see ../DEPLOY.md).
+#   cp .env.example .env    # set DOMAIN, POSTGRES_PASSWORD, JWT_SECRET
+#   docker compose up -d --build
+services:
+  db:
+    image: timescale/timescaledb:2.17.2-pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: collar
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: collar
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U collar"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    # no ports: the database is only reachable from the other containers
+
+  api:
+    build: ..
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://collar:${POSTGRES_PASSWORD}@db:5432/collar
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      PORT: 3000
+      ALERTS_EVERY_MIN: ${ALERTS_EVERY_MIN:-60}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2.8.4-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - api
+
+  backup:
+    # Nightly pg_dump into ./backups; dumps older than 14 days are pruned.
+    # Copy ./backups off the server too (another disk, cloud storage).
+    image: timescale/timescaledb:2.17.2-pg16
+    restart: unless-stopped
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./backups:/backups
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        while true; do
+          f=/backups/collar-$$(date +%F).dump
+          pg_dump -h db -U collar -Fc collar > $$f.tmp && mv $$f.tmp $$f && echo "backup $$f"
+          find /backups -name 'collar-*.dump' -mtime +14 -delete
+          sleep 86400
+        done
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db-data:
+  caddy-data:
+  caddy-config:

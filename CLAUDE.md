@@ -355,7 +355,7 @@ arrives on its own.
 - [ ] **Base station (`basestation/`, ADR 0007):** ESP32 (e.g. XIAO ESP32-C3) as BLE central that pulls new summaries from the collar and uploads them over Wi-Fi to `/ingest`; Wi-Fi provisioning from the app over BLE; per-device credential; collar prefers the base station when both clients are present
 - [ ] Phone keeps working as fallback sync away from home
 - [x] Several dogs per account; privacy (LGPD): export (`GET /v1/me/export`) and deletion (`DELETE /v1/me`); [ ] consent screen in the app
-- [ ] Self-hostable with Docker Compose (documented in `backend/README.md`; HTTPS/deploy guide pending), plus one shared instance for beta users
+- [x] Self-hostable with Docker Compose: `backend/DEPLOY.md` (Caddy HTTPS, nightly backups, restore tested locally); [ ] one shared instance for beta users
 
 **Done when:** a real alert fires correctly with your dog's data; repeated ingestion does
 not duplicate; with the base station on, data reaches the backend within minutes of the
