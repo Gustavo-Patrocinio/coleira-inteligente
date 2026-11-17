@@ -55,7 +55,7 @@ static void sampler_thread(void *a, void *b, void *c)
 	ARG_UNUSED(b);
 	ARG_UNUSED(c);
 
-	static struct raw_sample samples[RAW_PKT_SAMPLES];
+	static struct imu_sample samples[RAW_PKT_SAMPLES];
 	static uint8_t pkt[RAW_PKT_SIZE];
 	struct k_timer timer;
 	uint16_t seq = 0;

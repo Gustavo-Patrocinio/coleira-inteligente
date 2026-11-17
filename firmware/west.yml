@@ -18,5 +18,11 @@ manifest:
       repo-path: sdk-nrf
       revision: v2.9.0
       import: true
+    # Optional Zephyr module, not imported by NCS by default; needed by firmware/app.
+    # Same commit as NCS v2.9.0's zephyr/submanifests/optional.yaml.
+    - name: tflite-micro
+      url: https://github.com/zephyrproject-rtos/tflite-micro
+      revision: 48613f7ba1ffbda46ad771a77a35408f48f922e9
+      path: modules/lib/tflite-micro
   self:
     path: coleira-inteligente

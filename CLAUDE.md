@@ -298,10 +298,12 @@ the author's dog **and at least 4 other dogs** of different sizes (ADR 0009).
 
 - [ ] Fine-tuning: pre-train on public data + adapt on our own data (classes 0–4)
 - [ ] Evaluation split by dog (leave-one-dog-out) and by session/day
-- [ ] Export int8 `.tflite` → C array (`models/`)
-- [ ] `firmware/app/`: integrate TFLite Micro; size the tensor arena
-- [ ] Measure inference time and RAM used
-- [ ] Smoothing per section 4.3: majority for states, event detection for 3–4; calibrate `p_event`/`n_min` on a validation session; unit tests with synthetic sequences
+- [x] Export int8 `.tflite` → C array (`ml/scripts/export_model.py` → `firmware/app/src/model/`, with generated config and op list)
+- [x] `firmware/app/`: integrate TFLite Micro (+ CMSIS-NN); 16 KB tensor arena (builds 0 warnings: 172 KB flash, 49 KB RAM)
+- [ ] Measure inference time and RAM used **on the board** (printed by the app)
+- [x] Smoothing per section 4.3: majority for states, event detection for 3–4; host-tested with synthetic sequences (`ml/tests/test_firmware_host.py`, C via zig cc)
+- [ ] Calibrate `p_event`/`n_min` on a validation session
+- [x] Firmware preprocessing = training preprocessing (host test; same class on ≥ 99% of real windows)
 - [ ] Live test: class printed on serial vs video, on a new session
 
 **Done when:** F1 ≥ 0.85 on classes 0–2 and ≥ 0.70 on scratching/shaking on a never-seen session **and on never-seen dogs**; inference < 50 ms.
@@ -450,5 +452,5 @@ from the production design, with a cost per unit that allows selling it.
 
 - **Current phase:** 1 (Phase 0 completed 2026-11-16)
 - **Goal:** open project for any dog first, product later (ADR 0009)
-- **Next task:** when the XIAO arrives: flash `firmware/logger` (already builds; NCS v2.9.0 installed in `C:\ncs`), verify with `ml/scripts/record_ble.py` (README status list); meanwhile, the Flutter collection app
+- **Next task:** when the XIAO arrives: flash `firmware/logger` and `firmware/app` (both build; NCS v2.9.0 in `C:\ncs`, tflite-micro in `C:\ncs\extra`), verify with `ml/scripts/record_ble.py` and the app's serial log (README status lists); meanwhile, backend or the Flutter collection app
 - **Hardware:** XIAO nRF52840 Sense + Raspberry Pi Pico H ordered (AliExpress, ETA Nov 27 – Dec 4, 2026); battery, jumpers and soldering kit to buy locally

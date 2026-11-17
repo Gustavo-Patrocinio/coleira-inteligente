@@ -21,6 +21,7 @@ dev = [
     "ipykernel>=6.29",
     "nbconvert>=7.17.2",
     "imageio-ffmpeg>=0.8.1",
+    "ziglang>=0.17.1",
 ]
 
 [build-system]

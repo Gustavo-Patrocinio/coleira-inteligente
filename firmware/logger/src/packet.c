@@ -3,7 +3,7 @@
 #include <zephyr/sys/byteorder.h>
 
 void raw_packet_pack(uint8_t buf[RAW_PKT_SIZE], uint16_t seq, uint32_t device_ms,
-		     const struct raw_sample samples[RAW_PKT_SAMPLES])
+		     const struct imu_sample samples[RAW_PKT_SAMPLES])
 {
 	buf[0] = RAW_PKT_VERSION;
 	buf[1] = RAW_PKT_TYPE_RAW;

@@ -48,7 +48,7 @@ int imu_init(void)
 	return 0;
 }
 
-int imu_read(struct raw_sample *out)
+int imu_read(struct imu_sample *out)
 {
 	struct sensor_value a[3], g[3];
 	int err = sensor_sample_fetch(imu);

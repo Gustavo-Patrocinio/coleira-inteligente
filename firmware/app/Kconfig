@@ -1,0 +1,12 @@
+menu "Collar app"
+
+config COLLAR_TENSOR_ARENA_SIZE
+	int "TensorFlow Lite Micro tensor arena size (bytes)"
+	default 16384
+	help
+	  Working memory for the CNN's activations. The boot log prints how much of it the
+	  model actually uses; keep a margin above that number.
+
+endmenu
+
+source "Kconfig.zephyr"
