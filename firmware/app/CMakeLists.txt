@@ -24,3 +24,4 @@ target_sources(app PRIVATE
   ${COMMON}/imu.c
   ${COMMON}/packet.c
 )
+target_sources_ifdef(CONFIG_BOOTLOADER_MCUBOOT app PRIVATE src/ota.c)

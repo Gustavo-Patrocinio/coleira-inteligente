@@ -1,0 +1,34 @@
+# OTA flash layout (ADR 0015). Internal 1 MB: MCUboot, running firmware, summaries.
+# External 2 MB QSPI: the update slot. MCUboot replaces Seeed's UF2 bootloader (SWD, once).
+mcuboot:
+  address: 0x0
+  size: 0xc000
+  region: flash_primary
+mcuboot_pad:
+  address: 0xc000
+  size: 0x200
+  region: flash_primary
+app:
+  address: 0xc200
+  size: 0x8be00
+  region: flash_primary
+mcuboot_primary:
+  address: 0xc000
+  size: 0x8c000
+  span: [mcuboot_pad, app]
+  region: flash_primary
+mcuboot_primary_app:
+  address: 0xc200
+  size: 0x8be00
+  span: [app]
+  region: flash_primary
+# FIXED_PARTITION_ID(storage_partition) in src/summary_store.c resolves to this one
+storage_partition:
+  address: 0x98000
+  size: 0x68000
+  region: flash_primary
+mcuboot_secondary:
+  address: 0x0
+  size: 0x8c000
+  device: DT_CHOSEN(nordic_pm_ext_flash)
+  region: external_flash

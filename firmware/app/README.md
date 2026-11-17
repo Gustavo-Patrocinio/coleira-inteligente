@@ -15,7 +15,7 @@ IMU 50 Hz → ring buffer (last 2 s) → every 1 s: int8 preprocessing → CNN �
 - **Storage** (`src/summary_store.c`): one FCB element per minute on a 416 KB partition
   (`boards/xiao_ble_nrf52840_sense.overlay`); when full, the oldest sector goes.
   `sysbuild.conf` turns off NCS's Partition Manager so the devicetree layout (UF2 bootloader)
-  is used; MCUboot (OTA) will redo the layout.
+  is used; the OTA variant has its own layout (below).
 - **Raw dump mode** (`src/raw_stream.c`, ADR 0014): also serves the logger's raw service;
   while the phone's collection mode (or `ml/scripts/record_ble.py`) is subscribed it streams
   contract 4.4 packets, and recognition keeps running.
@@ -46,6 +46,10 @@ IMU 50 Hz → ring buffer (last 2 s) → every 1 s: int8 preprocessing → CNN �
       builder host-tested (clock from start, clock set later, clock correction, gaps)
 - [x] Raw dump mode builds with 0 compiler warnings (2026-11-17): 303 KB flash, 85 KB RAM
       (release build: 262 KB, 74 KB)
+- [x] OTA variant (MCUboot + BLE DFU, ADR 0015) builds (2026-11-17): app 324 KB of a 560 KB
+      slot, RAM 105 KB; MCUboot 38 KB of 48 KB; merged.hex and dfu_application.zip produced
+- [ ] OTA on the board: MCUboot flashed over SWD, an update over BLE, and a revert of an
+      image that never confirms (Phase 3 done criterion)
 - [ ] Runs on the board: boot log shows `model ready ... arena used X of 16384`
 - [ ] Storage survives reboots; sync with `ml/scripts/sync_ble.py --dry-run` returns the stored minutes
 - [ ] 24 h on battery with sync and no gaps/duplicates (Phase 3 done criterion)
@@ -77,6 +81,67 @@ APP=C:/Users/<you>/Documents/projetos/coleira-inteligente/firmware/app
 
 Flash `C:/ncs/b/app/app/zephyr/zephyr.uf2` the same way as the logger (double-tap reset,
 copy to the `XIAO-SENSE` drive).
+
+## OTA variant (MCUboot + BLE updates, ADR 0015)
+
+The default build above keeps Seeed's UF2 bootloader: easy to flash, but updates need USB.
+The OTA variant replaces it with MCUboot once (over SWD), and from then on new firmware goes
+over Bluetooth from a phone. Flash layout:
+
+| Where | What | Size |
+|---|---|---|
+| internal 0x00000 | MCUboot | 48 KB |
+| internal 0x0C000 | running firmware (slot 0) | 560 KB |
+| internal 0x98000 | per-minute summaries | 416 KB (~13 days) |
+| QSPI 0x000000 | update slot (slot 1) | 560 KB |
+
+Build (same as above plus four options):
+
+```bash
+west build -p always -b xiao_ble/nrf52840/sense -d C:/ncs/b/ota "$APP" --   -DZEPHYR_EXTRA_MODULES=C:/ncs/extra/tflite-micro   -DSB_CONF_FILE=ota/sysbuild.conf -DEXTRA_CONF_FILE=ota/ota.conf   -DEXTRA_DTC_OVERLAY_FILE=ota/ota.overlay -DPM_STATIC_YML_FILE=ota/pm_static.yml
+```
+
+Outputs in the build folder: `merged.hex` (MCUboot + firmware, for the first SWD flash) and
+`dfu_application.zip` / `app/zephyr/zephyr.signed.bin` (for updates over BLE). Add
+`-DEXTRA_CONF_FILE="ota/ota.conf;release.conf"` for a release build.
+
+**Signing key.** Without options the image is signed with MCUboot's public development key:
+fine on the bench, but anyone could sign an image for your collar. Before a collar leaves the
+bench, make your own key once and keep it out of git:
+
+```bash
+python C:/ncs/v2.9.0/bootloader/mcuboot/scripts/imgtool.py keygen -k C:/keys/collar-ec-p256.pem -t ecdsa-p256
+# then add to the build:  -DSB_CONFIG_BOOT_SIGNATURE_KEY_FILE=\"C:/keys/collar-ec-p256.pem\"
+```
+
+Every later update must be signed with the same key, or MCUboot refuses it. Lose the key and
+the collar needs the SWD probe again.
+
+### First flash over SWD (once per collar)
+
+1. Turn the Raspberry Pi Pico into a debug probe: hold BOOTSEL, plug it in, copy
+   `debugprobe_on_pico.uf2` (from the raspberrypi/debugprobe releases) to the `RPI-RP2` drive.
+2. Wire Pico → XIAO SWD pads (underside): GP2 → SWCLK, GP3 → SWDIO, GND → GND. Power the XIAO
+   from its own USB-C.
+3. Erase the chip (removes the UF2 bootloader and the old summaries; sync first) and flash:
+
+   ```bash
+   uvx pyocd erase --chip -t nrf52840
+   uvx pyocd flash -t nrf52840 C:/ncs/b/ota/merged.hex
+   ```
+
+4. The collar boots and advertises `Collar` as before.
+
+### Updates over BLE
+
+1. On the phone, install **nRF Connect Device Manager** (Nordic, Android/iOS) and copy
+   `dfu_application.zip` to it.
+2. Select `Collar` → Image → Upload, choose the file, mode **Test only**.
+3. The collar resets into the new image. If it starts fully (IMU, storage, BLE, model), it
+   confirms itself after 30 s (`src/ota.c`); if not, the next reset goes back to the previous
+   image. Do not pick "Test and confirm": it confirms before the health check.
+
+Going back to the UF2 bootloader: flash Seeed's bootloader hex over SWD the same way.
 
 ## Updating the model
 

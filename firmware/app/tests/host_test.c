@@ -240,6 +240,54 @@ static int run_preprocess(const char *in_path, const char *out_path, int n)
 	return 0;
 }
 
+/* smooth IN OUT N K P_EVENT MAJ IDS NMIN: N windows of K float32 probs in, N class IDs out.
+ * IDS and NMIN are comma-separated (one per model output). Python parity check. */
+static int parse_list(const char *s, uint8_t *out, int max)
+{
+	int n = 0;
+
+	while (*s && n < max) {
+		out[n++] = (uint8_t)strtol(s, (char **)&s, 10);
+		if (*s == ',') {
+			s++;
+		}
+	}
+	return n;
+}
+
+static int run_smooth(char **a)
+{
+	FILE *fin = fopen(a[0], "rb");
+	FILE *fout = fopen(a[1], "wb");
+	int n = atoi(a[2]);
+	struct smooth_cfg cfg = {0};
+	struct smooth_state st;
+	float probs[SMOOTH_MAX_CLASSES];
+
+	if (!fin || !fout) {
+		return 3;
+	}
+	cfg.n_classes = (uint8_t)atoi(a[3]);
+	cfg.p_event = (float)atof(a[4]);
+	cfg.majority_len = (uint8_t)atoi(a[5]);
+	if (parse_list(a[6], cfg.class_id, SMOOTH_MAX_CLASSES) != cfg.n_classes ||
+	    parse_list(a[7], cfg.event_n_min, SMOOTH_MAX_CLASSES) != cfg.n_classes) {
+		return 4;
+	}
+	smooth_init(&st);
+	for (int i = 0; i < n; i++) {
+		if (fread(probs, sizeof(float), cfg.n_classes, fin) != cfg.n_classes) {
+			return 5;
+		}
+		uint8_t c = smooth_step(&cfg, &st, probs);
+
+		fwrite(&c, 1, 1, fout);
+	}
+	fclose(fin);
+	fclose(fout);
+	return 0;
+}
+
 int main(int argc, char **argv)
 {
 	if (argc >= 2 && strcmp(argv[1], "smoothing") == 0) {
@@ -250,8 +298,10 @@ int main(int argc, char **argv)
 		test_summary();
 	} else if (argc == 5 && strcmp(argv[1], "preprocess") == 0) {
 		return run_preprocess(argv[2], argv[3], atoi(argv[4]));
+	} else if (argc == 10 && strcmp(argv[1], "smooth") == 0) {
+		return run_smooth(argv + 2);
 	} else {
-		fprintf(stderr, "usage: host_test smoothing|ring|preprocess IN OUT N\n");
+		fprintf(stderr, "usage: host_test smoothing|ring|summary | preprocess IN OUT N | smooth ...\n");
 		return 2;
 	}
 	if (failures) {

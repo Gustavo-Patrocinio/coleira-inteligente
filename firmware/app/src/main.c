@@ -20,6 +20,7 @@
 #include "imu.h"
 #include "model/model_config.h"
 #include "model_runner.h"
+#include "ota.h"
 #include "preprocess.h"
 #include "raw_stream.h"
 #include "smoothing.h"
@@ -230,5 +231,6 @@ int main(void)
 		(unsigned)model_arena_used(), (unsigned)model_arena_size());
 	k_thread_start(inference);
 	k_thread_start(sampler);
+	ota_confirm_later(K_SECONDS(30));
 	return 0;
 }
