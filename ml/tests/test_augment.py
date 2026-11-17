@@ -28,14 +28,14 @@ def test_rotation_only_preserves_magnitudes_and_is_shared_by_acc_and_gyro():
     X = _windows()
     rng = np.random.default_rng(1)
     out = augment(X, rng, scale_range=(1, 1), accel_noise_g=0, gyro_noise_dps=0)
-    # módulos preservados
+    # norms preserved
     for sl in (slice(0, 3), slice(3, 6)):
         assert np.allclose(
             np.linalg.norm(out[:, :, sl], axis=2), np.linalg.norm(X[:, :, sl], axis=2), atol=1e-4
         )
     assert np.allclose(out[:, :, 6], X[:, :, 6], atol=1e-4)
 
-    # mesma rotação: o ângulo entre o vetor de aceleração e o de giro não muda
+    # same rotation: the angle between the accel and gyro vectors does not change
     def cos(a, g):
         return (a * g).sum(-1) / (np.linalg.norm(a, axis=-1) * np.linalg.norm(g, axis=-1))
 

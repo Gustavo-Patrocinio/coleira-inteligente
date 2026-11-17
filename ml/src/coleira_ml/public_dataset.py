@@ -1,11 +1,12 @@
-"""Loader do dataset público (Vehkaoja et al., 2022): só o sensor da coleira.
+"""Loader for the public dataset (Vehkaoja et al., 2022): collar sensor only.
 
-Faz três coisas:
-1. Lê do CSV de ~2 GB apenas as colunas do pescoço (coleira) e os rótulos.
-2. Mapeia os até 3 rótulos simultâneos para UM class_id nosso (contrato 4.1).
-3. Reamostra de 100 Hz para 50 Hz (contrato 4.2), com filtro anti-aliasing.
+It does three things:
+1. Reads only the neck (collar) columns and the labels from the ~2 GB CSV.
+2. Maps up to 3 simultaneous labels to ONE of our class IDs (contract 4.1).
+3. Resamples 100 Hz → 50 Hz (contract 4.2) with anti-aliasing, saturating at our
+   IMU's full scale (ADR 0005).
 
-Ver docs/dataset-publico.md para a análise que justifica as regras de mapeamento.
+See docs/public-dataset.md for the analysis behind the mapping rules.
 """
 
 from __future__ import annotations
@@ -21,15 +22,15 @@ from coleira_ml.classes import Behavior
 
 SOURCE_HZ = 100
 TARGET_HZ = 50
-SENSOR_COLS = ["ax", "ay", "az", "gx", "gy", "gz"]  # acel. em g, giro em °/s
+SENSOR_COLS = ["ax", "ay", "az", "gx", "gy", "gz"]  # accel in g, gyro in °/s
 ACCEL_COLS = SENSOR_COLS[:3]
 GYRO_COLS = SENSOR_COLS[3:]
 
-# Fundo de escala do NOSSO IMU (contrato 4.2 / ADR 0005).
+# OUR IMU's full scale (contract 4.2 / ADR 0005).
 ACCEL_RANGE_G = 16.0
 GYRO_RANGE_DPS = 2000.0
 
-# Nomes do cabeçalho do CSV (valem estes, não a ordem do Data_description.txt).
+# CSV header names (these win over the order given in Data_description.txt).
 _CSV_RENAME = {
     "DogID": "dog_id",
     "TestNum": "test_num",
@@ -45,78 +46,78 @@ _LABEL_COLS = ["Behavior_1", "Behavior_2", "Behavior_3"]
 _UNDEFINED = "<undefined>"
 
 # ---------------------------------------------------------------------------
-# Mapeamento de rótulos
+# Label mapping
 # ---------------------------------------------------------------------------
 
-# Rótulos que não dizem nada sobre o movimento da coleira: simplesmente ignorados.
+# Labels that say nothing about collar motion: simply ignored.
 IGNORED = frozenset({_UNDEFINED, "Panting", "Synchronization", "Extra_Synchronization"})
-# Contexto: ignorado quando há andadura; sozinho (sem andadura) → desconhecido.
+# Context: ignored when a gait is present; on its own (no gait) → unknown.
 CONTEXT = frozenset({"Playing", "Carrying object"})
-# Movimentos próprios que não são classe nossa: qualquer ocorrência → desconhecido.
+# Distinct movements that are not one of our classes: any occurrence → unknown.
 EXCLUDE = frozenset({"Tugging", "Jumping", "Bowing"})
 
 POSTURE = frozenset({"Lying chest", "Sitting", "Standing"})
 GAIT = {
-    "Walking": Behavior.ANDANDO,
-    "Pacing": Behavior.ANDANDO,
-    "Trotting": Behavior.CORRENDO,
-    "Galloping": Behavior.CORRENDO,
+    "Walking": Behavior.WALKING,
+    "Pacing": Behavior.WALKING,
+    "Trotting": Behavior.RUNNING,
+    "Galloping": Behavior.RUNNING,
 }
 
 
 def map_label_set(labels: Iterable[str]) -> Behavior:
-    """Converte um conjunto de rótulos simultâneos do dataset em uma classe nossa.
+    """Turn a set of simultaneous dataset labels into one of our classes.
 
-    Prioridade (a primeira regra que casar vence):
-    1. Tugging/Jumping/Bowing → desconhecido
-    2. Shaking → chacoalhando (evento curto e forte, domina o sinal)
-    3. Drinking → bebendo
-    4. Eating → comendo (com postura ou sozinho); com andadura → desconhecido
-    5. Andadura (walking/pacing → andando; trotting/galloping → correndo);
-       duas andaduras diferentes ou andadura + postura → desconhecido
-    6. Playing sem andadura → desconhecido
-    7. Postura (deitado/sentado/em pé) → parado
-    8. Sniffing sozinho → desconhecido: o dataset nunca rotula farejar junto com
-       postura ou andadura, então não dá para separar parado de andando (ADR 0004)
-    9. Nada → desconhecido
+    Priority (the first matching rule wins):
+    1. Tugging/Jumping/Bowing → unknown
+    2. Shaking → shaking (short, strong event that dominates the signal)
+    3. Drinking → drinking
+    4. Eating → eating (with a posture or alone); with a gait → unknown
+    5. Gait (walking/pacing → walking; trotting/galloping → running);
+       two different gaits, or gait + posture → unknown
+    6. Playing without a gait → unknown
+    7. Posture (lying/sitting/standing) → still
+    8. Sniffing alone → unknown: the dataset never labels sniffing together with a
+       posture or gait, so still and walking cannot be told apart (ADR 0004)
+    9. Nothing → unknown
     """
     s = set(labels) - IGNORED
     gaits = {GAIT[b] for b in s if b in GAIT}
     has_posture = bool(s & POSTURE)
 
     if s & EXCLUDE:
-        return Behavior.DESCONHECIDO
+        return Behavior.UNKNOWN
     if "Shaking" in s:
-        return Behavior.CHACOALHANDO
+        return Behavior.SHAKING
     if "Drinking" in s:
-        return Behavior.BEBENDO
+        return Behavior.DRINKING
     if "Eating" in s:
-        return Behavior.DESCONHECIDO if gaits else Behavior.COMENDO
+        return Behavior.UNKNOWN if gaits else Behavior.EATING
     if gaits:
         if len(gaits) > 1 or has_posture:
-            return Behavior.DESCONHECIDO
+            return Behavior.UNKNOWN
         return next(iter(gaits))
     if "Playing" in s:
-        return Behavior.DESCONHECIDO
+        return Behavior.UNKNOWN
     if has_posture:
-        return Behavior.PARADO
-    return Behavior.DESCONHECIDO
+        return Behavior.STILL
+    return Behavior.UNKNOWN
 
 
 def map_behaviors(b1: pd.Series, b2: pd.Series, b3: pd.Series) -> pd.Series:
-    """Versão vetorizada: mapeia cada combinação única uma vez só (há poucas dezenas)."""
+    """Vectorized version: maps each unique combination only once (there are a few dozen)."""
     key = b1.astype(str) + "|" + b2.astype(str) + "|" + b3.astype(str)
     lookup = {k: int(map_label_set(k.split("|"))) for k in key.unique()}
     return key.map(lookup).astype(np.uint8)
 
 
 # ---------------------------------------------------------------------------
-# Leitura e reamostragem
+# Reading and resampling
 # ---------------------------------------------------------------------------
 
 
 def read_collar_csv(csv_path: Path) -> pd.DataFrame:
-    """Lê só a coleira e devolve 100 Hz com `class_id` já mapeado."""
+    """Read the collar sensor only; returns 100 Hz data with `class_id` already mapped."""
     usecols = list(_CSV_RENAME) + _LABEL_COLS
     dtypes = {c: "category" for c in _LABEL_COLS}
     dtypes |= {"DogID": "int16", "TestNum": "int8"}
@@ -133,8 +134,7 @@ def clip_to_imu_range(
     accel_g: float = ACCEL_RANGE_G,
     gyro_dps: float = GYRO_RANGE_DPS,
 ) -> pd.DataFrame:
-    """Simula a saturação do nosso IMU (ADR 0005). Aplicar ANTES de reamostrar,
-    porque no sensor real a saturação acontece antes do filtro digital."""
+    """Simulate our IMU's saturation (ADR 0005)."""
     out = df.copy()
     out[ACCEL_COLS] = out[ACCEL_COLS].clip(-accel_g, accel_g)
     out[GYRO_COLS] = out[GYRO_COLS].clip(-gyro_dps, gyro_dps)
@@ -142,11 +142,11 @@ def clip_to_imu_range(
 
 
 def resample_to_50hz(df: pd.DataFrame) -> pd.DataFrame:
-    """100 Hz → 50 Hz por teste (dog_id, test_num).
+    """100 Hz → 50 Hz, per test (dog_id, test_num).
 
-    Sensores: `resample_poly(1, 2)` aplica um filtro passa-baixa FIR antes de
-    descartar amostras, então frequências acima de 25 Hz não "dobram" no sinal.
-    Rótulos: amostra sim, amostra não (erro de borda de no máximo 10 ms).
+    Sensors: `resample_poly(1, 2)` applies an FIR low-pass filter before dropping
+    samples, so frequencies above 25 Hz do not fold back into the signal.
+    Labels: every other sample (boundary error of at most 10 ms).
     """
     parts = []
     for (dog, test), g in df.groupby(["dog_id", "test_num"], sort=True):
@@ -163,20 +163,20 @@ def resample_to_50hz(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def collar_pipeline(df_100hz: pd.DataFrame) -> pd.DataFrame:
-    """Satura → reamostra → satura de novo.
+    """Saturate → resample → saturate again.
 
-    O segundo clip existe porque o filtro FIR da reamostragem "repica" (overshoot de
-    Gibbs) nas bordas de um trecho saturado e passaria do fundo de escala, coisa que a
-    saída de um IMU real nunca faz.
+    The second clip exists because the resampling FIR filter rings (Gibbs overshoot)
+    at the edges of a saturated stretch and would exceed full scale, which a real IMU's
+    output never does.
     """
     return clip_to_imu_range(resample_to_50hz(clip_to_imu_range(df_100hz)))
 
 
 def load_collar(data_dir: Path, *, use_cache: bool = True) -> pd.DataFrame:
-    """Coleira a 50 Hz, saturada na faixa do nosso IMU, com `class_id`.
+    """Collar data at 50 Hz, saturated to our IMU's range, with `class_id`.
 
-    Primeira chamada ~30 s; depois lê do cache parquet (<1 s). O nome do cache inclui
-    as faixas do IMU, então mudar o contrato 4.2 gera um cache novo automaticamente.
+    First call ~30 s; afterwards it reads a parquet cache (<1 s). The cache name includes
+    the IMU ranges, so changing contract 4.2 creates a new cache automatically.
     """
     cache = data_dir / f"collar_50hz_{ACCEL_RANGE_G:g}g_{GYRO_RANGE_DPS:g}dps.parquet"
     if use_cache and cache.exists():

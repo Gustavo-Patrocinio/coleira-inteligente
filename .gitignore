@@ -1,11 +1,11 @@
-# --- Dados (regra 1 do CLAUDE.md: nunca versionar) ---
+# --- Data (rule 1 in CLAUDE.md: never version it) ---
 ml/data/
 *.mp4
 *.mov
 *.avi
 *.mkv
 
-# --- Modelos grandes / artefatos de treino ---
+# --- Large models / training artifacts ---
 ml/models/*.tflite
 ml/models/*.pt
 ml/models/*.pth
@@ -14,8 +14,8 @@ ml/models/*.h5
 ml/models/*.keras
 ml/runs/
 ml/checkpoints/
-# arrays C exportados para o firmware podem ser versionados (são pequenos);
-# se algum passar de ~200 KB, adicionar aqui.
+# C arrays exported for the firmware may be versioned (they are small);
+# if one grows past ~200 KB, add it here.
 
 # --- Python ---
 __pycache__/
@@ -52,7 +52,7 @@ hardware/pcb/**/*-backups/
 hardware/pcb/**/fp-info-cache
 hardware/pcb/**/*.lck
 
-# --- SO / editores ---
+# --- OS / editors ---
 .DS_Store
 Thumbs.db
 .vscode/

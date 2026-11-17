@@ -1,13 +1,13 @@
-"""Baixa o dataset público (Vehkaoja et al., 2022 / Kumpulainen et al., 2021) do Mendeley Data.
+"""Download the public dataset (Vehkaoja 2022 / Kumpulainen 2021) from Mendeley Data.
 
-Uso (de dentro de ml/):
+Usage (from ml/):
     uv run python scripts/download_public.py
 
-- Usa a API pública do Mendeley e confere o SHA-256 de cada arquivo.
-- Pula arquivos que já existem com o hash certo (pode rodar de novo sem rebaixar).
-- Extrai o zip do CSV em data/public/.
+- Uses Mendeley's public API and checks each file's SHA-256.
+- Skips files that already exist with the right hash (safe to run again).
+- Extracts the CSV zip into data/public/.
 
-Citação obrigatória (pedida pelos autores):
+Required citations (requested by the authors):
 - Vehkaoja et al. (2022), Data in Brief 40, 107822.
 - Kumpulainen et al. (2021), Applied Animal Behaviour Science 241, 105393.
 """
@@ -62,22 +62,22 @@ def main() -> int:
         details = meta["content_details"]
         dest = OUT_DIR / name
         if dest.exists() and sha256(dest) == details["sha256_hash"]:
-            print(f"ok (já existe): {name}")
+            print(f"ok (already there): {name}")
             continue
-        print(f"baixando: {name}")
+        print(f"downloading: {name}")
         download(details["download_url"], dest, details["size"])
         if sha256(dest) != details["sha256_hash"]:
-            print(f"ERRO: hash não confere em {name}", file=sys.stderr)
+            print(f"ERROR: hash mismatch for {name}", file=sys.stderr)
             return 1
 
     zip_path = OUT_DIR / "DogMoveData_csv_format.zip"
     with zipfile.ZipFile(zip_path) as zf:
         for member in zf.namelist():
             target = (OUT_DIR / member).resolve()
-            if not target.is_relative_to(OUT_DIR.resolve()):  # evita path traversal
-                raise RuntimeError(f"caminho suspeito no zip: {member}")
+            if not target.is_relative_to(OUT_DIR.resolve()):  # guard against path traversal
+                raise RuntimeError(f"suspicious path in zip: {member}")
         zf.extractall(OUT_DIR)
-        print("extraído:", ", ".join(zf.namelist()))
+        print("extracted:", ", ".join(zf.namelist()))
     return 0
 
 

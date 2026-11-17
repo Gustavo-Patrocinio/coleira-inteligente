@@ -1,4 +1,4 @@
-/* Interface do labeler: liga vídeo, gráficos (uPlot) e a lógica do core.js. */
+/* Labeler UI: wires the video, the charts (uPlot) and the core.js logic. */
 (function () {
   "use strict";
   const C = window.LabelerCore;
@@ -15,11 +15,11 @@
     taps: {},
     segments: [],
     open: null, // { class_id, start_ms }
-    armedSignalTap: null, // "start_device_ms" | "end_device_ms" quando esperando clique no gráfico
+    armedSignalTap: null, // "start_device_ms" | "end_device_ms" while waiting for a chart click
     winIdx: 1,
     speedIdx: 2,
     charts: [],
-    xVideoS: null, // eixo x dos gráficos, em segundos de vídeo
+    xVideoS: null, // chart x axis, in video seconds
   };
 
   const video = $("video");
@@ -45,7 +45,7 @@
     if (!k) return;
     try {
       localStorage.setItem(k, JSON.stringify({ segments: state.segments, taps: state.taps }));
-    } catch (_) { /* armazenamento indisponível: segue sem rascunho */ }
+    } catch (_) { /* storage unavailable: no draft */ }
   }
 
   function loadDraft() {
@@ -76,7 +76,7 @@
   function currentSync() {
     const s = C.syncFromTaps(state.taps);
     if (s.mode === "none" && state.timeline) {
-      // sem batidas: alinha a 1ª amostra com o início do vídeo (só para visualizar)
+      // no taps: align the first sample with the start of the video (display only)
       return { a: -state.timeline.deviceMs[0], b: 1, mode: "none" };
     }
     return s;
@@ -102,9 +102,9 @@
       $(`v_${key}`).textContent = v == null ? "—" : key.includes("video") ? C.fmtTime(v) : `${(v / 1000).toFixed(2)} s`;
     }
     const info = {
-      none: "sem sincronização: o gráfico está alinhado só pelo começo",
-      offset: `offset aplicado (${((s.a) / 1000).toFixed(3)} s). Marque também o fim para corrigir a deriva.`,
-      drift: `offset + deriva: ${((s.b - 1) * 1e6).toFixed(0)} ppm (${((s.b - 1) * 600).toFixed(2)} s a cada 10 min)`,
+      none: "not synced: the chart is only aligned by its start",
+      offset: `offset applied (${((s.a) / 1000).toFixed(3)} s). Mark the end too to correct drift.`,
+      drift: `offset + drift: ${((s.b - 1) * 1e6).toFixed(0)} ppm (${((s.b - 1) * 600).toFixed(2)} s every 10 min)`,
     }[s.mode];
     $("syncInfo").textContent = info;
   }
@@ -132,7 +132,7 @@
               ctx.globalAlpha = 0.9;
               ctx.fillRect(x0, top, x1 - x0, 4 * devicePixelRatio);
             }
-            // batidas
+            // taps
             const s = currentSync();
             ctx.globalAlpha = 1;
             ctx.setLineDash([4, 4]);
@@ -142,7 +142,7 @@
               const x = u.valToPos(C.deviceToVideo(s, state.taps[k]) / 1000, "x", true);
               ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, top + h); ctx.stroke();
             }
-            // cursor do vídeo
+            // video cursor
             ctx.setLineDash([]);
             ctx.strokeStyle = css("--cursor");
             ctx.lineWidth = 2 * devicePixelRatio;
@@ -206,8 +206,8 @@
       { label: "gz", stroke: "#54A24B", width: 1 },
     ];
     state.charts = [
-      makeChart($("chartAcc"), "Acelerômetro (g)", accSeries, [x, p.ax, p.ay, p.az, p.amag], "g"),
-      makeChart($("chartGyro"), "Giroscópio (°/s)", gyroSeries, [x, p.gx, p.gy, p.gz], "°/s"),
+      makeChart($("chartAcc"), "Accelerometer (g)", accSeries, [x, p.ax, p.ay, p.az, p.amag], "g"),
+      makeChart($("chartGyro"), "Gyroscope (°/s)", gyroSeries, [x, p.gx, p.gy, p.gz], "°/s"),
     ];
   }
 
@@ -245,17 +245,17 @@
       const lab = $("nowLabel");
       if (i >= 0) {
         const c = C.CLASS_BY_ID[state.segments[i].class_id];
-        lab.textContent = c.name + ((state.segments[i].confidence ?? 1) < 1 ? " (incerto)" : "");
+        lab.textContent = c.name + ((state.segments[i].confidence ?? 1) < 1 ? " (uncertain)" : "");
         lab.style.background = c.color;
       } else {
-        lab.textContent = "sem rótulo";
+        lab.textContent = "no label";
         lab.style.background = "";
       }
       const os = $("openSeg");
       os.hidden = !state.open;
       if (state.open) {
         const c = C.CLASS_BY_ID[state.open.class_id];
-        os.textContent = `● gravando ${c.name} desde ${C.fmtTime(state.open.start_ms)}`;
+        os.textContent = `● recording ${c.name} since ${C.fmtTime(state.open.start_ms)}`;
       }
       highlightRow(i);
       followVideo();
@@ -300,7 +300,7 @@
     const tot = C.totalsByClass(state.segments);
     $("legend").innerHTML = C.CLASSES.map((c) => {
       const min = (tot[c.id] || 0) / 60000;
-      const ok = c.id <= 4 && min >= 3; // meta da Fase 1: ≥ 3 min das classes 0–4
+      const ok = c.id <= 4 && min >= 3; // Phase 1 target: ≥ 3 min of classes 0–4
       return `<li><kbd>${c.key}</kbd><span class="sw" style="background:${c.color}"></span>${c.name}
         <span class="tot ${ok ? "ok" : ""}">${min.toFixed(1)} min</span></li>`;
     }).join("");
@@ -315,7 +315,7 @@
         <td>${((s.end_ms - s.start_ms) / 1000).toFixed(1)} s</td>
         <td><span class="sw" style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${c.color}"></span> ${c.name}</td>
         <td>${(s.confidence ?? 1).toFixed(2)}</td>
-        <td><button class="small" data-del="${i}">apagar</button></td></tr>`;
+        <td><button class="small" data-del="${i}">delete</button></td></tr>`;
     }).join("");
     $("segCount").textContent = `(${state.segments.length})`;
     const ready = !!state.meta;
@@ -359,7 +359,7 @@
         disarm();
         state.armedSignalTap = key;
         btn.classList.add("armed");
-        setStatus("Clique no pico da batida no gráfico (o clique gruda no pico mais próximo, ±0,5 s).");
+        setStatus("Click the tap peak on the chart (the click snaps to the nearest peak, ±0.5 s).");
       }
     });
   });
@@ -371,7 +371,7 @@
     recomputeX();
   });
 
-  // ------------------------------------------------------------ teclado
+  // ------------------------------------------------------------ keyboard
 
   document.addEventListener("keydown", (e) => {
     if (e.target.matches("input, textarea, select")) return;
@@ -392,7 +392,7 @@
         break;
       case "z":
         state.winIdx = (state.winIdx + 1) % WINDOWS_S.length;
-        $("winLabel").textContent = WINDOWS_S[state.winIdx] === Infinity ? "tudo" : `${WINDOWS_S[state.winIdx]} s`;
+        $("winLabel").textContent = WINDOWS_S[state.winIdx] === Infinity ? "all" : `${WINDOWS_S[state.winIdx]} s`;
         followVideo(true);
         break;
       case "enter": closeOpen(video.currentTime * 1000); changed(); break;
@@ -416,11 +416,11 @@
     e.preventDefault();
   });
 
-  // ------------------------------------------------------------ arquivos
+  // --------------------------------------------------------------- files
 
   async function loadSession({ csvFile, metaFile, videoFile }) {
     try {
-      if (!csvFile || !metaFile) throw new Error("faltou imu.csv ou meta.json");
+      if (!csvFile || !metaFile) throw new Error("missing imu.csv or meta.json");
       const meta = JSON.parse(await readText(metaFile));
       const cols = C.parseImuCsv(await readText(csvFile));
       state.meta = meta;
@@ -441,18 +441,18 @@
 
       const tl = state.timeline;
       $("sessionInfo").innerHTML = `
-        <b>${meta.session_id}</b> · cão ${meta.dog_id ?? "?"}<br>
-        ${cols.seq.length.toLocaleString("pt-BR")} amostras, ODR medido ${tl.odrHz.toFixed(2)} Hz<br>
-        pacotes: ${tl.packetsReceived}/${tl.packetsExpected}
-        (perda <b style="color:${tl.packetLoss < 0.01 ? "#2b8a3e" : "#c92a2a"}">${(tl.packetLoss * 100).toFixed(2)}%</b>, meta < 1%)<br>
-        faixas: ±${meta.accel_range} g, ±${meta.gyro_range} dps`;
+        <b>${meta.session_id}</b> · dog ${meta.dog_id ?? "?"}<br>
+        ${cols.seq.length.toLocaleString("en-US")} samples, measured ODR ${tl.odrHz.toFixed(2)} Hz<br>
+        packets: ${tl.packetsReceived}/${tl.packetsExpected}
+        (loss <b style="color:${tl.packetLoss < 0.01 ? "#2b8a3e" : "#c92a2a"}">${(tl.packetLoss * 100).toFixed(2)}%</b>, target < 1%)<br>
+        ranges: ±${meta.accel_range} g, ±${meta.gyro_range} dps`;
       setStatus(
-        `Sessão ${meta.session_id} carregada${videoFile ? "" : " (sem vídeo)"}.` +
-        (restored ? " Rascunho anterior restaurado deste navegador." : "")
+        `Session ${meta.session_id} loaded${videoFile ? "" : " (no video)"}.` +
+        (restored ? " Restored the previous draft from this browser." : "")
       );
     } catch (err) {
       console.error(err);
-      setStatus(`Erro ao abrir: ${err.message}`, true);
+      setStatus(`Could not open: ${err.message}`, true);
     }
   }
 
@@ -479,7 +479,7 @@
     if (!f) return;
     state.segments = C.parseLabelsCsv(await readText(f)).reduce(C.insertSegment, []);
     changed();
-    setStatus(`Importados ${state.segments.length} trechos de ${f.name}.`);
+    setStatus(`Imported ${state.segments.length} segments from ${f.name}.`);
   });
 
   $("exportLabels").addEventListener("click", () => {
@@ -493,7 +493,7 @@
     download("meta.json", JSON.stringify(meta, null, 2) + "\n", "application/json");
   });
 
-  // nome do rotulador lembrado neste navegador
+  // annotator name remembered in this browser
   try { $("annotator").value = localStorage.getItem("coleira-labeler:annotator") || ""; } catch (_) {}
   $("annotator").addEventListener("change", (e) => {
     try { localStorage.setItem("coleira-labeler:annotator", e.target.value); } catch (_) {}

@@ -1,57 +1,58 @@
-# Labeler da Coleira
+# Collar Labeler
 
-Ferramenta web para rotular sessões: vídeo e sinal do IMU lado a lado, com atalhos de
-teclado. HTML + JS puro, sem instalar nada: **abra o `index.html` no Chrome ou no Edge**.
-Precisa de internet só para baixar o uPlot (gráficos) do CDN.
+A web tool to label sessions: video and IMU signal side by side, driven by keyboard
+shortcuts. Plain HTML + JS, nothing to install: **open `index.html` in Chrome or Edge**.
+Internet is only needed to fetch uPlot (charts) from the CDN.
 
-## Fluxo
+## Workflow
 
-1. **Abrir pasta da sessão** e escolher a pasta com `imu.csv`, `meta.json` e o vídeo
-   (formato dos contratos 4.4–4.5).
-2. **Sincronizar** (ADR 0003):
-   - pause no frame em que a mão bate na caixa (1ª batida do início) → *início / vídeo: marcar*;
-   - clique em *início / sinal: marcar* e depois no pico do gráfico (o clique gruda no pico
-     mais próximo, ±0,5 s);
-   - repita para a 1ª batida do **fim**. Com início + fim, a deriva do relógio é corrigida.
-3. **Rotular** assistindo ao vídeo: tecla da classe começa um trecho, outra tecla fecha o
-   atual e começa o próximo, a mesma tecla ou `Enter` fecha. `I` marca como incerto
-   (confiança 0,5), `Del` apaga o trecho sob o cursor.
-4. **Exportar rótulos** gera `<session_id>.csv` no formato do contrato 4.6 (vai para
-   `ml/data/labels/`). **Exportar meta.json** salva as batidas em `sync_taps`.
+1. **Open session folder** and pick the folder with `imu.csv`, `meta.json` and the video
+   (format from contracts 4.4–4.5).
+2. **Sync** (ADR 0003):
+   - pause on the frame where the hand hits the case (first tap at the start) →
+     *start / video: mark*;
+   - click *start / signal: mark*, then the peak on the chart (the click snaps to the
+     nearest peak, ±0.5 s);
+   - repeat for the first tap at the **end**. With start + end, clock drift is corrected.
+3. **Label** while watching: a class key starts a segment, another key closes the current
+   one and starts the next, the same key or `Enter` closes it. `I` marks it as uncertain
+   (confidence 0.5), `Del` deletes the segment under the cursor.
+4. **Export labels** writes `<session_id>.csv` in the contract 4.6 format (it goes into
+   `ml/data/labels/`). **Export meta.json** saves the taps under `sync_taps`.
 
-O trabalho fica salvo como rascunho neste navegador (por `session_id`). Ainda assim,
-exporte ao terminar: o rascunho some se os dados do site forem apagados.
+Work is kept as a draft in this browser (per `session_id`). Still, export when you are
+done: the draft is lost if the site data is cleared.
 
-| Tecla | Ação |
+| Key | Action |
 |---|---|
-| `0`–`6` | parado, andando, correndo, coçando, chacoalhando, comendo, bebendo |
-| `x` | desconhecido / transição (255) |
-| `Espaço` | play/pause |
+| `0`–`6` | still, walking, running, scratching, shaking, eating, drinking |
+| `x` | unknown / transition (255) |
+| `Space` | play/pause |
 | `←` `→` | ±1 s (`Shift`: ±5 s) |
 | `,` `.` | ±1 frame |
-| `[` `]` | velocidade (0,25× a 4×) |
-| `Z` | janela do gráfico (10 s / 30 s / 120 s / tudo) |
+| `[` `]` | speed (0.25× to 4×) |
+| `Z` | chart window (10 s / 30 s / 120 s / all) |
 
-O painel *Sessão* mostra o ODR medido e a **perda de pacotes** (critério da Fase 1: < 1%).
-A legenda soma os minutos por classe e fica verde quando uma classe 0–4 passa de 3 min.
+The *Session* panel shows the measured ODR and the **packet loss** (Phase 1 criterion:
+< 1%). The legend adds up minutes per class and turns green when a class 0–4 passes 3 min.
 
-## Testar sem hardware
+## Testing without hardware
 
 ```bash
 cd ml
 uv run python scripts/make_synthetic_session.py
 ```
 
-O script cria `ml/data/raw/synthetic_demo/` com um sinal real do dataset público, um vídeo
-que mostra o comportamento na tela e "pisca" nas batidas, e um gabarito
-(`labels_truth.csv`). Ele simula vídeo atrasado, deriva de relógio, perda de pacotes e a
-volta do `seq`.
+The script creates `ml/data/raw/synthetic_demo/` with a real signal from the public
+dataset, a video that shows the behavior on screen and flashes on the taps, and ground
+truth (`labels_truth.csv`). It simulates a late video start, clock drift, packet loss and
+`seq` wrap-around.
 
-## Código
+## Code
 
-- `core.js`: lógica pura (linha do tempo, sincronização, trechos, exportação), sem DOM.
-- `app.js`: interface (vídeo, uPlot, teclado).
-- Testes da lógica: `node --test tools/labeler/test/core.test.js`.
+- `core.js`: pure logic (timeline, sync, segments, export), no DOM.
+- `app.js`: UI (video, uPlot, keyboard).
+- Logic tests: `node --test tools/labeler/test/core.test.js`.
 
-Ambos são scripts clássicos (sem `import`), porque módulos ES não carregam em páginas
-abertas via `file://`.
+Both are classic scripts (no `import`), because ES modules do not load in pages opened
+via `file://`.

@@ -1,39 +1,41 @@
-# Resultados
+# Results
 
-Resumo de todos os modelos. Os detalhes de cada experimento (F1 por classe, matriz de
-confusão, folds) ficam nos relatórios gerados em `docs/results/`.
+Summary of every model. Each experiment's details (per-class F1, confusion matrix, folds)
+live in the generated reports under `docs/results/`.
 
-Regras (seção 6 do CLAUDE.md): avaliação sempre **por grupo** (cachorro / sessão), e todo
-resultado traz acurácia balanceada, F1 por classe, matriz de confusão, tamanho e RAM.
+Rules (section 6 of CLAUDE.md): evaluation is always **by group** (dog / session), and
+every result reports balanced accuracy, per-class F1, confusion matrix, size and RAM.
 
-## Fase 0: dataset público, só coleira, cachorros não vistos (GroupKFold 5×)
+## Phase 0: public dataset, collar only, unseen dogs (GroupKFold 5×)
 
-| Modelo | Classes | Acur. balanceada | F1 (por classe) | Tamanho | RAM | Relatório |
+| Model | Classes | Balanced acc. | F1 (per class) | Size | RAM | Report |
 |---|---|---:|---|---:|---:|---|
-| RF raso (50 árv., prof. ≤ 8) | 0, 1, 2 | **0,956 ± 0,013** | parado 0,99 · andando 0,90 · correndo 0,96 | ~64 KB* | ~1,7 KB* | [A](results/fase0_baseline.md) |
-| RF raso (50 árv., prof. ≤ 8) | 0, 1, 2, 4 | 0,960 ± 0,013 | … · chacoalhando 0,93 | ~52 KB* | ~1,7 KB* | [B](results/fase0_baseline.md) |
-| Árvore MLC (prof. ≤ 4, sem FFT) | parado × movimento | 0,986 ± 0,004 | parado 0,99 · movimento 0,98 | 29 nós | — | [C](results/fase0_baseline.md) |
-| CNN 1D float (com augmentation) | 0, 1, 2 | 0,957 ± 0,010 | | 8,4 mil parâm. | | [D](results/fase0_cnn.md) |
-| **CNN 1D int8 (com augmentation)** ✅ | 0, 1, 2 | **0,957 ± 0,010** | parado 0,99 · andando 0,91 · correndo 0,95 | **18,8 KB** (.tflite) | ~2,3 KB* (ativações) | [D](results/fase0_cnn.md) |
-| CNN 1D int8, teste com coleira **girada** | 0, 1, 2 | 0,957 ± 0,010 (sem aug: **0,779**) | | | | [D](results/fase0_cnn.md) |
+| Shallow RF (50 trees, depth ≤ 8) | 0, 1, 2 | **0.956 ± 0.013** | still 0.99 · walking 0.90 · running 0.96 | ~64 KB* | ~1.7 KB* | [A](results/phase0_baseline.md) |
+| Shallow RF (50 trees, depth ≤ 8) | 0, 1, 2, 4 | 0.960 ± 0.013 | … · shaking 0.93 | ~52 KB* | ~1.7 KB* | [B](results/phase0_baseline.md) |
+| MLC tree (depth ≤ 4, no FFT) | still × moving | 0.986 ± 0.004 | still 0.99 · moving 0.98 | 29 nodes | — | [C](results/phase0_baseline.md) |
+| 1D CNN float (with augmentation) | 0, 1, 2 | 0.957 ± 0.010 | | 8.4k params | | [D](results/phase0_cnn.md) |
+| **1D CNN int8 (with augmentation)** ✅ | 0, 1, 2 | **0.957 ± 0.010** | still 0.99 · walking 0.91 · running 0.95 | **18.8 KB** (.tflite) | ~2.3 KB* (activations) | [D](results/phase0_cnn.md) |
+| 1D CNN int8, test with a **rotated** collar | 0, 1, 2 | 0.957 ± 0.010 (no aug: **0.779**) | | | | [D](results/phase0_cnn.md) |
 
-\* Estimativas: tamanho ≈ 10 B por nó de árvore; RAM = janela int16 + |a| + vetor de
-features. Os números medidos de verdade vêm quando exportarmos para o firmware (Fase 2).
+\* Estimates: size ≈ 10 B per tree node; RAM = int16 window + |a| + feature vector, or the
+largest pair of consecutive int8 activations for the CNN. Measured numbers come when we
+export to the firmware (Phase 2).
 
-### Leitura (2026-11-16)
+### Reading (2026-11-16)
 
-- ✅ **Meta da Fase 0 batida:** CNN int8 com **0,957** de acurácia balanceada em cachorros
-  não vistos (meta ≥ 0,85), ocupando **18,8 KB** (meta < 64 KB).
-- **Int8 não perdeu nada** em relação ao float (diferença < 0,002 em todos os folds).
-- **Augmentation é o que garante robustez à rotação:** sem ele, girar a coleira derruba a
-  acurácia de 0,966 para **0,779**; com ele, fica em 0,957 nos dois casos. Custa ~1 ponto
-  no teste original e vale a pena, porque coleira gira no pescoço. O modelo oficial usa augmentation.
-- **A CNN empata com o RF (0,956) sendo 3× menor** e sem features escolhidas à mão.
-- **A maior confusão é andando → correndo (8%).** Passo rápido e trote lento são vizinhos.
-- **Chacoalhar: F1 0,93 com só 390 janelas.** É um sinal bem distinto (ver `01_explore`).
-- **Árvore do MLC: 98,6% com 29 nós**, o que viabiliza o nível 1 da Fase 5 (o MCU dorme
-  enquanto o IMU decide "parado"). ⚠️ Ela usa features de eixos específicos (`ay`, `az`),
-  que dependem da orientação da coleira. Precisa ser retreinada com rotação aleatória e
-  validada nos dados próprios antes de ir para o IMU.
-- ⚠️ **Tudo isso é no dataset público** (outro sensor, outra montagem, cachorros treinados
-  em ambiente controlado). A queda nos dados do seu cachorro (domain gap) só será medida na Fase 1.
+- ✅ **Phase 0 target met:** int8 CNN with **0.957** balanced accuracy on unseen dogs
+  (target ≥ 0.85), at **18.8 KB** (target < 64 KB).
+- **int8 lost nothing** compared with float (difference < 0.002 in every fold).
+- **Augmentation is what makes it robust to rotation:** without it, rotating the collar
+  drops accuracy from 0.966 to **0.779**; with it, accuracy stays at 0.957 either way. It
+  costs ~1 point on the original test and is worth it, because collars rotate. The official
+  model uses augmentation.
+- **The CNN ties with the RF (0.956) while being 3× smaller** and with no hand-crafted features.
+- **The main confusion is walking → running (8%).** Fast walking and slow trotting are neighbors.
+- **Shaking: F1 0.93 with only 390 windows.** It is a very distinct signal (see `01_explore`).
+- **MLC tree: 98.6% with 29 nodes**, which makes Phase 5's level 1 viable (the MCU sleeps
+  while the IMU decides "still"). ⚠️ It uses axis-specific features (`ay`, `az`), which
+  depend on collar orientation. It must be retrained with random rotation and validated on
+  our own data before going into the IMU.
+- ⚠️ **All of this is on the public dataset** (different sensor, different mounting, dogs
+  in a controlled setting). The drop on our own dog's data (domain gap) is measured in Phase 1.

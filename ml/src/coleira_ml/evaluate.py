@@ -1,8 +1,8 @@
-"""Avaliação honesta: validação cruzada por grupo (regra 2 do CLAUDE.md).
+"""Honest evaluation: group cross-validation (rule 2 in CLAUDE.md).
 
-Cada fold deixa cachorros inteiros de fora, então o modelo é sempre testado em
-cachorros que ele nunca viu. Divisão aleatória por janela é proibida: janelas vizinhas
-do mesmo cachorro são quase iguais e inflariam a acurácia.
+Each fold leaves whole dogs out, so the model is always tested on dogs it has never
+seen. A random split by window is forbidden: neighboring windows from the same dog are
+nearly identical and would inflate accuracy.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ class CVResult:
     labels: list[int]
     fold_balanced_acc: list[float]
     f1_per_class: dict[int, float]
-    confusion: np.ndarray  # linhas = verdade, colunas = predito (out-of-fold, somado)
+    confusion: np.ndarray  # rows = truth, columns = predicted (out-of-fold, summed)
     y_true: np.ndarray
     y_pred: np.ndarray
 
@@ -44,7 +44,7 @@ def group_cv(
     y_pred = np.empty_like(y)
     fold_bacc = []
     for train, test in GroupKFold(n_splits=n_splits).split(F, y, groups):
-        assert not set(groups[train]) & set(groups[test]), "vazamento de grupo entre folds"
+        assert not set(groups[train]) & set(groups[test]), "group leakage between folds"
         model = make_model()
         model.fit(F[train], y[train])
         y_pred[test] = model.predict(F[test])
@@ -61,11 +61,11 @@ def group_cv(
 
 
 def tree_nodes(model: object) -> int:
-    """Total de nós de uma árvore ou floresta do scikit-learn."""
+    """Total node count of a scikit-learn tree or forest."""
     trees = getattr(model, "estimators_", [model])
     return int(sum(t.tree_.node_count for t in trees))
 
 
-# Estimativa até exportarmos de verdade: por nó, índice da feature (1 B) + limiar
-# float32 (4 B) + 2 filhos int16 (4 B) + folga/alinhamento → ~10 B.
+# Estimate until we export for real: per node, feature index (1 B) + float32 threshold
+# (4 B) + 2 int16 children (4 B) + padding/alignment → ~10 B.
 BYTES_PER_NODE_ESTIMATE = 10

@@ -1,4 +1,4 @@
-"""Testes rápidos da CNN: formato, treino em dado trivial e fidelidade do int8."""
+"""Quick CNN tests: shape, training on a trivial problem and int8 fidelity."""
 
 import numpy as np
 import pytest
@@ -7,7 +7,7 @@ cnn = pytest.importorskip("coleira_ml.cnn")
 
 
 def _toy(n=600, seed=0):
-    # classe 0: parado (ruído pequeno), classe 1: oscilação forte em ax
+    # class 0: still (small noise), class 1: strong oscillation on ax
     rng = np.random.default_rng(seed)
     y = rng.integers(0, 2, size=n)
     t = np.arange(100) / 50
@@ -20,7 +20,7 @@ def _toy(n=600, seed=0):
 def test_build_cnn_shape_and_size():
     m = cnn.build_cnn(n_classes=3)
     assert m.output.shape[-1] == 3
-    assert m.count_params() < 10_000  # cabe com folga em < 64 KB
+    assert m.count_params() < 10_000  # fits comfortably in < 64 KB
 
 
 def test_balanced_class_weight():
@@ -41,5 +41,5 @@ def test_train_and_int8_agree_on_easy_problem():
 
 def test_activation_ram_estimate():
     m = cnn.build_cnn(n_classes=3)
-    # maior par: conv1 (100×16) + maxpool1 (50×16) = 2400, maior que entrada+conv1 (2300)
+    # largest pair: conv1 (100x16) + maxpool1 (50x16) = 2400, more than input+conv1 (2300)
     assert cnn.activation_ram_estimate(m) == 100 * 16 + 50 * 16

@@ -1,0 +1,123 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 580" width="1000" height="580" role="img" aria-label="System architecture: collar with two-level classification syncs over BLE to a home base station or the phone app, which upload to the backend; an offline ML pipeline trains the int8 model that is sent to the collar by OTA">
+  <style>
+    .bg { fill: #ffffff; }
+    .group { fill: #f6f7f9; stroke: #d5dae0; stroke-width: 1; }
+    .box { fill: #ffffff; stroke: #b8c0ca; stroke-width: 1.2; }
+    .box-hw { fill: #eef4fc; stroke: #8fb0dc; stroke-width: 1.2; }
+    .box-ml { fill: #fff4e8; stroke: #e2ad6f; stroke-width: 1.2; }
+    .glabel { font: 600 13px system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; fill: #59636e; letter-spacing: 0.04em; }
+    .title { font: 600 13.5px system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; fill: #1d2228; }
+    .text { font: 400 11.5px system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; fill: #3d454d; }
+    .edge { font: 500 11px system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; fill: #2f6fde; }
+    .edge-ml { font: 500 11px system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; fill: #b35c00; }
+    .line { stroke: #2f6fde; stroke-width: 1.6; fill: none; }
+    .line-ml { stroke: #c97a1c; stroke-width: 1.6; fill: none; }
+    .dash { stroke-dasharray: 5 4; }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#2f6fde"/>
+    </marker>
+    <marker id="m" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#c97a1c"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1000" height="580" rx="14"/>
+
+  <!-- Collar -->
+  <rect class="group" x="24" y="24" width="300" height="290" rx="12"/>
+  <text class="glabel" x="40" y="48">COLLAR</text>
+  <rect class="box-hw" x="44" y="64" width="260" height="84" rx="8"/>
+  <text class="title" x="58" y="88">IMU · LSM6DSOX</text>
+  <text class="text" x="58" y="108">Level 1: decision tree in the MLC</text>
+  <text class="text" x="58" y="126">still ↔ moving; wakes the MCU</text>
+  <path class="line" d="M174 148 V182" marker-end="url(#a)"/>
+  <text class="edge" x="182" y="170">interrupt + FIFO</text>
+  <rect class="box-hw" x="44" y="186" width="260" height="110" rx="8"/>
+  <text class="title" x="58" y="210">nRF52840 · Zephyr</text>
+  <text class="text" x="58" y="230">Level 2: int8 1D CNN (TFLite Micro)</text>
+  <text class="text" x="58" y="248">7 classes, 2 s windows, smoothing</text>
+  <text class="text" x="58" y="266">→ 15-byte summary per minute</text>
+  <text class="text" x="58" y="284">→ flash (days of buffer)</text>
+
+  <!-- Sync paths -->
+  <rect class="box" x="404" y="58" width="236" height="92" rx="8"/>
+  <text class="title" x="420" y="84">Home base station · ESP32</text>
+  <text class="text" x="420" y="104">wall plug, syncs on its own</text>
+  <text class="text" x="420" y="122">primary path at home (ADR 0007)</text>
+  <rect class="box" x="404" y="196" width="236" height="100" rx="8"/>
+  <text class="title" x="420" y="222">Phone app · Flutter</text>
+  <text class="text" x="420" y="242">fallback sync away from home</text>
+  <text class="text" x="420" y="260">daily routine, trends, alerts</text>
+  <text class="text" x="420" y="278">data collection with video</text>
+
+  <path class="line" d="M304 200 C350 200 360 104 402 104" marker-end="url(#a)"/>
+  <text class="edge" x="340" y="138">BLE</text>
+  <path class="line" d="M304 246 H402" marker-end="url(#a)"/>
+  <text class="edge" x="340" y="240">BLE</text>
+
+  <!-- Backend -->
+  <rect class="group" x="716" y="24" width="260" height="290" rx="12"/>
+  <text class="glabel" x="732" y="48">BACKEND</text>
+  <rect class="box" x="736" y="64" width="220" height="66" rx="8"/>
+  <text class="title" x="750" y="88">Fastify + Zod API</text>
+  <text class="text" x="750" y="108">idempotent POST /ingest</text>
+  <rect class="box" x="736" y="148" width="220" height="62" rx="8"/>
+  <text class="title" x="750" y="172">Postgres + TimescaleDB</text>
+  <text class="text" x="750" y="192">per-minute activity, aggregates</text>
+  <rect class="box" x="736" y="228" width="220" height="68" rx="8"/>
+  <text class="title" x="750" y="252">Baseline + alerts</text>
+  <text class="text" x="750" y="272">median + MAD per dog, push</text>
+  <path class="line" d="M846 130 V146" marker-end="url(#a)"/>
+  <path class="line" d="M846 210 V226" marker-end="url(#a)"/>
+
+  <path class="line" d="M640 98 H734" marker-end="url(#a)"/>
+  <text class="edge" x="664" y="90">Wi-Fi</text>
+  <path class="line" d="M640 220 C690 220 690 116 734 116" marker-end="url(#a)"/>
+  <text class="edge" x="650" y="182">4G / Wi-Fi</text>
+  <path class="line dash" d="M736 268 H642" marker-end="url(#a)"/>
+  <text class="edge" x="654" y="262">push</text>
+
+  <!-- ML pipeline -->
+  <rect class="group" x="24" y="356" width="952" height="200" rx="12"/>
+  <text class="glabel" x="40" y="380">ML PIPELINE (OFFLINE · ml/ + tools/labeler)</text>
+
+  <rect class="box-ml" x="44" y="410" width="164" height="96" rx="8"/>
+  <text class="title" x="58" y="434">Data</text>
+  <text class="text" x="58" y="454">public dataset (45 dogs)</text>
+  <text class="text" x="58" y="472">+ own sessions</text>
+  <text class="text" x="58" y="490">recorded with video</text>
+
+  <rect class="box-ml" x="232" y="410" width="164" height="96" rx="8"/>
+  <text class="title" x="246" y="434">Labeler</text>
+  <text class="text" x="246" y="454">video ⇄ IMU sync</text>
+  <text class="text" x="246" y="472">drift correction</text>
+  <text class="text" x="246" y="490">keyboard labeling</text>
+
+  <rect class="box-ml" x="420" y="410" width="164" height="96" rx="8"/>
+  <text class="title" x="434" y="434">Prepare</text>
+  <text class="text" x="434" y="454">2 s windows</text>
+  <text class="text" x="434" y="472">3D-rotation augmentation</text>
+  <text class="text" x="434" y="490">GroupKFold by dog</text>
+
+  <rect class="box-ml" x="608" y="410" width="164" height="96" rx="8"/>
+  <text class="title" x="622" y="434">Train · Keras</text>
+  <text class="text" x="622" y="454">1D CNN, 8.4k params</text>
+  <text class="text" x="622" y="472">balanced accuracy</text>
+  <text class="text" x="622" y="490">0.957 on unseen dogs</text>
+
+  <rect class="box-ml" x="796" y="410" width="164" height="96" rx="8"/>
+  <text class="title" x="810" y="434">int8 TFLite</text>
+  <text class="text" x="810" y="454">18.8 KB, no accuracy</text>
+  <text class="text" x="810" y="472">loss vs float</text>
+  <text class="text" x="810" y="490">→ firmware → OTA</text>
+
+  <path class="line-ml" d="M208 458 H230" marker-end="url(#m)"/>
+  <path class="line-ml" d="M396 458 H418" marker-end="url(#m)"/>
+  <path class="line-ml" d="M584 458 H606" marker-end="url(#m)"/>
+  <path class="line-ml" d="M772 458 H794" marker-end="url(#m)"/>
+
+  <path class="line-ml dash" d="M878 410 V336 H174 V298" marker-end="url(#m)"/>
+  <text class="edge-ml" x="470" y="330">OTA model update (MCUboot)</text>
+</svg>

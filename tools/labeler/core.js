@@ -1,41 +1,42 @@
 /*
- * Lógica pura do labeler (sem DOM), testável com `node --test`.
- * Carregado como script clássico (sem módulos ES), porque módulos não funcionam
- * em páginas abertas via file:// e o labeler não tem build step.
+ * Pure labeler logic (no DOM), testable with `node --test`.
+ * Loaded as a classic script (no ES modules), because modules do not load in pages
+ * opened via file:// and the labeler has no build step.
  *
- * Tempos:
- *   device_ms : relógio da coleira (CSV, contrato 4.5)
- *   video_ms  : tempo do vídeo; os rótulos são exportados nele (contrato 4.6)
- * O mapeamento video_ms = a + b * device_ms vem das batidinhas (ADR 0003).
+ * Clocks:
+ *   device_ms : collar clock (CSV, contract 4.5)
+ *   video_ms  : video time; labels are exported in it (contract 4.6)
+ * The mapping video_ms = a + b * device_ms comes from the sync taps (ADR 0003).
  */
 (function (root) {
   "use strict";
 
-  const SAMPLES_PER_PACKET = 10; // contrato 4.4
+  const SAMPLES_PER_PACKET = 10; // contract 4.4
   const UNKNOWN = 255;
 
+  // Class names: ADR 0008. Colors match the app prototype.
   const CLASSES = [
-    { id: 0, key: "0", name: "parado", color: "#4C78A8" },
-    { id: 1, key: "1", name: "andando", color: "#54A24B" },
-    { id: 2, key: "2", name: "correndo", color: "#F58518" },
-    { id: 3, key: "3", name: "cocando", color: "#E45756" },
-    { id: 4, key: "4", name: "chacoalhando", color: "#B279A2" },
-    { id: 5, key: "5", name: "comendo", color: "#9D755D" },
-    { id: 6, key: "6", name: "bebendo", color: "#72B7B2" },
-    { id: UNKNOWN, key: "x", name: "desconhecido", color: "#9A9A9A" },
+    { id: 0, key: "0", name: "still", color: "#4C78A8" },
+    { id: 1, key: "1", name: "walking", color: "#54A24B" },
+    { id: 2, key: "2", name: "running", color: "#F58518" },
+    { id: 3, key: "3", name: "scratching", color: "#E45756" },
+    { id: 4, key: "4", name: "shaking", color: "#B279A2" },
+    { id: 5, key: "5", name: "eating", color: "#9D755D" },
+    { id: 6, key: "6", name: "drinking", color: "#72B7B2" },
+    { id: UNKNOWN, key: "x", name: "unknown", color: "#9A9A9A" },
   ];
   const CLASS_BY_ID = Object.fromEntries(CLASSES.map((c) => [c.id, c]));
   const CLASS_BY_KEY = Object.fromEntries(CLASSES.map((c) => [c.key, c]));
 
   // ------------------------------------------------------------------ CSV
 
-  /** imu.csv (contrato 4.5) → colunas como arrays numéricos. */
+  /** imu.csv (contract 4.5) → columns as numeric arrays. */
   function parseImuCsv(text) {
     const lines = text.trim().split(/\r?\n/);
     const header = lines[0].split(",").map((h) => h.trim());
     const need = ["phone_ts_ms", "device_ms", "seq", "ax", "ay", "az", "gx", "gy", "gz"];
     for (const n of need) {
-      if (!header.includes(n)) throw new Error(`coluna ausente no CSV: ${n}`);
+      if (!header.includes(n)) throw new Error(`missing CSV column: ${n}`);
     }
     const idx = Object.fromEntries(need.map((n) => [n, header.indexOf(n)]));
     const cols = Object.fromEntries(need.map((n) => [n, new Float64Array(lines.length - 1)]));
@@ -52,7 +53,7 @@
 
   // ------------------------------------------------------------ timeline
 
-  /** Desembrulha o seq uint16 (dá a volta em 65535). */
+  /** Unwrap the uint16 seq (wraps at 65535). */
   function unwrapSeq(seq) {
     const out = new Float64Array(seq.length);
     let offset = 0;
@@ -64,8 +65,8 @@
   }
 
   /**
-   * Índice global de cada amostra, contando as amostras dos pacotes perdidos.
-   * Amostras do mesmo pacote compartilham `seq`; a posição dentro do pacote é a ordem.
+   * Global index of each sample, counting the samples of lost packets.
+   * Samples from the same packet share `seq`; the position inside the packet is the order.
    */
   function sampleIndex(seq) {
     const useq = unwrapSeq(seq);
@@ -79,7 +80,7 @@
     return k;
   }
 
-  /** Regressão linear simples y = a + b x. */
+  /** Simple linear regression y = a + b x. */
   function linfit(x, y) {
     const n = x.length;
     let sx = 0, sy = 0;
@@ -96,8 +97,8 @@
   }
 
   /**
-   * Tempo do dispositivo para cada amostra, estimando a taxa REAL do IMU por regressão
-   * de device_ms contra o índice da amostra (ADR 0003), em vez de supor 20 ms exatos.
+   * Device time for each sample, estimating the REAL IMU rate by regressing device_ms
+   * against the sample index (ADR 0003) instead of assuming exactly 20 ms.
    */
   function buildTimeline(cols) {
     const k = sampleIndex(cols.seq);
@@ -118,7 +119,7 @@
     };
   }
 
-  /** Valores crus int16 → g e °/s, usando as faixas do meta.json. */
+  /** Raw int16 values → g and °/s, using the ranges from meta.json. */
   function toPhysical(cols, accelRangeG, gyroRangeDps) {
     const ka = accelRangeG / 32768, kg = gyroRangeDps / 32768;
     const n = cols.ax.length;
@@ -135,8 +136,8 @@
   // ---------------------------------------------------------------- sync
 
   /**
-   * Mapeamento device_ms → video_ms a partir das batidinhas.
-   * Só início: offset puro (b = 1). Início + fim: offset + correção de deriva.
+   * device_ms → video_ms mapping from the sync taps.
+   * Start only: pure offset (b = 1). Start + end: offset + drift correction.
    */
   function syncFromTaps(taps) {
     const s = taps && taps.start_video_ms != null && taps.start_device_ms != null;
@@ -144,7 +145,7 @@
     if (!s) return { a: 0, b: 1, mode: "none" };
     if (!e) return { a: taps.start_video_ms - taps.start_device_ms, b: 1, mode: "offset" };
     const dd = taps.end_device_ms - taps.start_device_ms;
-    if (Math.abs(dd) < 1) throw new Error("batidinhas de início e fim no mesmo instante");
+    if (Math.abs(dd) < 1) throw new Error("start and end taps at the same instant");
     const b = (taps.end_video_ms - taps.start_video_ms) / dd;
     return { a: taps.start_video_ms - b * taps.start_device_ms, b, mode: "drift" };
   }
@@ -152,7 +153,7 @@
   const deviceToVideo = (sync, d) => sync.a + sync.b * d;
   const videoToDevice = (sync, v) => (v - sync.a) / sync.b;
 
-  /** Pico de |a| mais próximo dentro de ±windowMs (para "grudar" o clique na batida). */
+  /** Nearest |a| peak within ±windowMs (snaps a click onto the tap). */
   function snapToPeak(deviceMs, amag, clickDeviceMs, windowMs = 500) {
     let best = -1, bestV = -Infinity;
     for (let i = 0; i < deviceMs.length; i++) {
@@ -166,7 +167,7 @@
 
   // ------------------------------------------------------------ segments
 
-  /** Ordena e remove sobreposições: o segmento mais novo "corta" os antigos. */
+  /** Sort and remove overlaps: the newest segment "cuts" the older ones. */
   function insertSegment(segments, seg) {
     if (!(seg.end_ms > seg.start_ms)) return segments.slice();
     const out = [];
@@ -190,7 +191,7 @@
     return segments.filter((_, j) => j !== i);
   }
 
-  /** Minutos por classe (critério de pronto da Fase 1: ≥ 3 min de cada classe 0–4). */
+  /** Milliseconds per class (Phase 1 done criterion: ≥ 3 min of each class 0–4). */
   function totalsByClass(segments) {
     const tot = {};
     for (const s of segments) tot[s.class_id] = (tot[s.class_id] || 0) + (s.end_ms - s.start_ms);
@@ -199,7 +200,7 @@
 
   // -------------------------------------------------------------- export
 
-  /** Rótulos no formato do contrato 4.6 (tempo relativo ao início do vídeo). */
+  /** Labels in the contract 4.6 format (time relative to the start of the video). */
   function labelsToCsv(segments, annotator) {
     const safe = String(annotator || "").replace(/[,\r\n]/g, " ").trim();
     const rows = ["start_ms,end_ms,class_id,annotator,confidence"];

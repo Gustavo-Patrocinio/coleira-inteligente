@@ -1,7 +1,7 @@
 [project]
 name = "coleira-ml"
 version = "0.1.0"
-description = "Pipeline de ML da coleira: janelamento, features, modelos e quantização"
+description = "Smart dog collar ML pipeline: windowing, features, models and int8 quantization"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "numpy>=2.0",
@@ -12,8 +12,6 @@ dependencies = [
     "pyarrow>=26.0.1",
     "tensorflow>=2.21.0",
 ]
-
-# PyTorch e a conversão TFLite entram quando chegarmos na CNN (ver checklist da Fase 0).
 
 [dependency-groups]
 dev = [

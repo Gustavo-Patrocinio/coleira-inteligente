@@ -1,12 +1,12 @@
-"""Data augmentation para janelas do IMU (só no treino, nunca no teste).
+"""Data augmentation for IMU windows (training only, never test).
 
-- Rotação 3D aleatória: simula a coleira girando no pescoço ou montada de outro jeito.
-  A MESMA rotação vale para acelerômetro e giroscópio (são o mesmo corpo rígido), e a
-  magnitude |a| é recalculada, mas como rotação não muda módulo, ela fica igual.
-- Escala: variação pequena de ganho (sensores diferentes, coleira mais frouxa).
-- Ruído gaussiano pequeno.
+- Random 3D rotation: simulates the collar rotating on the neck or being mounted
+  differently. The SAME rotation applies to accelerometer and gyroscope (they are the
+  same rigid body); |a| is recomputed, though a rotation does not change it.
+- Scale: small gain variation (different sensors, looser collar).
+- Small Gaussian noise.
 
-Canais esperados: ax, ay, az, gx, gy, gz [, acc_mag], nessa ordem.
+Expected channels: ax, ay, az, gx, gy, gz [, acc_mag], in that order.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from scipy.spatial.transform import Rotation
 
 
 def random_rotations(n: int, rng: np.random.Generator, max_deg: float | None = None) -> np.ndarray:
-    """n matrizes 3×3. `max_deg=None` → rotação uniforme em SO(3); senão, até max_deg graus."""
+    """n 3×3 matrices. `max_deg=None` → uniform rotation in SO(3); else up to max_deg degrees."""
     if max_deg is None:
         return Rotation.random(n, random_state=rng).as_matrix()
     axes = rng.normal(size=(n, 3))
@@ -34,10 +34,10 @@ def augment(
     accel_noise_g: float = 0.01,
     gyro_noise_dps: float = 1.0,
 ) -> np.ndarray:
-    """X: (n, W, 6 ou 7) → cópia aumentada, mesmo formato."""
+    """X: (n, W, 6 or 7) → augmented copy, same shape."""
     n, _, c = X.shape
     if c not in (6, 7):
-        raise ValueError("esperado 6 (ax..gz) ou 7 (+acc_mag) canais")
+        raise ValueError("expected 6 (ax..gz) or 7 (+acc_mag) channels")
     out = X.astype(np.float32, copy=True)
 
     R = random_rotations(n, rng, rotate_max_deg).astype(np.float32)  # (n, 3, 3)

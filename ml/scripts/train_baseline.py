@@ -1,9 +1,9 @@
-"""Fase 0: baseline de features + árvores, avaliado com GroupKFold por cachorro.
+"""Phase 0: features + trees baseline, evaluated with GroupKFold by dog.
 
-Uso (de dentro de ml/):
+Usage (from ml/):
     uv run python scripts/train_baseline.py
 
-Gera docs/results/fase0_baseline.md e as matrizes de confusão em docs/results/figures/.
+Writes docs/results/phase0_baseline.md and the confusion matrices in docs/results/figures/.
 """
 
 from __future__ import annotations
@@ -26,10 +26,10 @@ from coleira_ml.public_dataset import TARGET_HZ, load_collar  # noqa: E402
 from coleira_ml.windows import WINDOW, make_windows  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
-OUT_MD = ROOT / "docs" / "results" / "fase0_baseline.md"
+OUT_MD = ROOT / "docs" / "results" / "phase0_baseline.md"
 FIG_DIR = OUT_MD.parent / "figures"
 SEED = 0
-MOVING = 100  # rótulo interno do experimento binário (não é um ID do contrato)
+MOVING = 100  # internal label for the binary experiment (not a contract ID)
 
 
 def rf_shallow():
@@ -44,12 +44,12 @@ def rf_shallow():
 
 
 def mlc_tree():
-    # O MLC da ST aceita árvores pequenas; profundidade 4 = no máximo 31 nós.
+    # ST's MLC accepts small trees; depth 4 = at most 31 nodes.
     return DecisionTreeClassifier(max_depth=4, class_weight="balanced", random_state=SEED)
 
 
 def name(c: int) -> str:
-    return "MOVIMENTO" if c == MOVING else Behavior(c).name
+    return "moving" if c == MOVING else Behavior(c).name.lower()
 
 
 def save_confusion(res: CVResult, title: str, fname: str) -> str:
@@ -59,8 +59,8 @@ def save_confusion(res: CVResult, title: str, fname: str) -> str:
         ax=ax, values_format=".2f", cmap="Blues", colorbar=False
     )
     ax.set_title(title, fontsize=10)
-    ax.set_xlabel("predito")
-    ax.set_ylabel("verdade")
+    ax.set_xlabel("predicted")
+    ax.set_ylabel("true")
     plt.setp(ax.get_xticklabels(), rotation=30, ha="right")
     fig.tight_layout()
     FIG_DIR.mkdir(parents=True, exist_ok=True)
@@ -70,10 +70,10 @@ def save_confusion(res: CVResult, title: str, fname: str) -> str:
 
 
 def report(title, res, model, F, y, n_feat, fig_rel, notes) -> str:
-    final = model.fit(F, y)  # modelo treinado em tudo, só para medir tamanho
+    final = model.fit(F, y)  # trained on everything, only to measure size
     nodes = tree_nodes(final)
     kb = nodes * BYTES_PER_NODE_ESTIMATE / 1024
-    # RAM de inferência (estimativa): janela int16 6 eixos + |a| float + vetor de features
+    # Inference RAM (estimate): int16 6-axis window + float |a| + feature vector
     ram_b = WINDOW * 6 * 2 + WINDOW * 4 + n_feat * 4
     counts = {name(c): int((y == c).sum()) for c in res.labels}
     lines = [
@@ -81,14 +81,14 @@ def report(title, res, model, F, y, n_feat, fig_rel, notes) -> str:
         "",
         notes,
         "",
-        f"- Janelas por classe: {counts}",
-        f"- **Acurácia balanceada (GroupKFold 5×, por cachorro): "
+        f"- Windows per class: {counts}",
+        f"- **Balanced accuracy (GroupKFold 5×, by dog): "
         f"{res.balanced_acc_mean:.3f} ± {res.balanced_acc_std:.3f}**",
-        f"- Por fold: {', '.join(f'{v:.3f}' for v in res.fold_balanced_acc)}",
-        f"- Tamanho: {nodes} nós ≈ **{kb:.1f} KB** (estimativa, ~{BYTES_PER_NODE_ESTIMATE} B/nó)",
-        f"- RAM de inferência: ≈ {ram_b / 1024:.1f} KB (estimativa: janela + features)",
+        f"- Per fold: {', '.join(f'{v:.3f}' for v in res.fold_balanced_acc)}",
+        f"- Size: {nodes} nodes ≈ **{kb:.1f} KB** (estimate, ~{BYTES_PER_NODE_ESTIMATE} B/node)",
+        f"- Inference RAM: ≈ {ram_b / 1024:.1f} KB (estimate: window + features)",
         "",
-        "| Classe | F1 |",
+        "| Class | F1 |",
         "|---|---:|",
         *[f"| {name(c)} | {f:.3f} |" for c, f in res.f1_per_class.items()],
         "",
@@ -101,70 +101,69 @@ def report(title, res, model, F, y, n_feat, fig_rel, notes) -> str:
 def main() -> None:
     df = add_acc_magnitude(load_collar(ROOT / "ml" / "data" / "public"))
     w = make_windows(df, CHANNELS_7)
-    print(f"{len(w.y)} janelas; rotuladas: {(w.y != 255).sum()}")
+    print(f"{len(w.y)} windows; labeled: {(w.y != 255).sum()}")
 
     F_full, names_full = window_features(w.X, CHANNELS_7, fs=TARGET_HZ, kind="full")
     F_mlc, names_mlc = window_features(w.X, CHANNELS_7, fs=TARGET_HZ, kind="mlc")
 
     sections = []
 
-    # A) meta da Fase 0: 3 classes
+    # A) Phase 0 target: 3 classes
     m = np.isin(w.y, [0, 1, 2])
     res = group_cv(rf_shallow, F_full[m], w.y[m], w.groups[m])
-    fig = save_confusion(res, "A: RF raso, 3 classes", "A_rf_3classes.png")
+    fig = save_confusion(res, "A: shallow RF, 3 classes", "A_rf_3classes.png")
     sections.append(
         report(
-            "A: Random Forest raso, classes 0–2 (meta da Fase 0)",
+            "A: Shallow Random Forest, classes 0–2 (Phase 0 target)",
             res, rf_shallow(), F_full[m], w.y[m], len(names_full), fig,
-            "50 árvores, profundidade ≤ 8, class_weight=balanced. "
-            "Features: média, desvio, mín, máx, energia e frequência dominante × 7 canais.",
+            "50 trees, depth ≤ 8, class_weight=balanced. "
+            "Features: mean, std, min, max, energy and dominant frequency × 7 channels.",
         )
     )  # fmt: skip
     print("A", round(res.balanced_acc_mean, 3), res.f1_per_class)
 
-    # B) com chacoalhar
+    # B) with shaking
     m = np.isin(w.y, [0, 1, 2, 4])
     res = group_cv(rf_shallow, F_full[m], w.y[m], w.groups[m])
-    fig = save_confusion(res, "B: RF raso, 0–2 + chacoalhar", "B_rf_4classes.png")
+    fig = save_confusion(res, "B: shallow RF, 0–2 + shaking", "B_rf_4classes.png")
     sections.append(
         report(
-            "B: Random Forest raso, classes 0–2 + chacoalhar (informativo)",
+            "B: Shallow Random Forest, classes 0–2 + shaking (informative)",
             res, rf_shallow(), F_full[m], w.y[m], len(names_full), fig,
-            "Mesmo modelo de A. Chacoalhar tem pouquíssimas janelas no dataset público.",
+            "Same model as A. Shaking has very few windows in the public dataset.",
         )
     )  # fmt: skip
     print("B", round(res.balanced_acc_mean, 3), res.f1_per_class)
 
-    # C) árvore do MLC: parado vs movimento, só features que o MLC calcula
+    # C) MLC tree: still vs moving, only features the MLC computes
     m = np.isin(w.y, [0, 1, 2, 4])
     y_bin = np.where(w.y[m] == 0, 0, MOVING)
     res = group_cv(mlc_tree, F_mlc[m], y_bin, w.groups[m])
-    fig = save_confusion(res, "C: árvore MLC, parado × movimento", "C_mlc_binary.png")
+    fig = save_confusion(res, "C: MLC tree, still × moving", "C_mlc_binary.png")
     sections.append(
         report(
-            "C: Árvore única compatível com MLC: parado × movimento (nível 1, Fase 5)",
+            "C: Single MLC-compatible tree: still × moving (level 1, Phase 5)",
             res, mlc_tree(), F_mlc[m], y_bin, len(names_mlc), fig,
-            "Profundidade ≤ 4. Features só do tipo que o MLC calcula (média, variância, "
-            "energia, pico a pico, mín, máx); sem FFT. Movimento = andando + correndo + "
-            "chacoalhando.",
+            "Depth ≤ 4. Only feature types the MLC computes (mean, variance, energy, "
+            "peak-to-peak, min, max); no FFT. Moving = walking + running + shaking.",
         )
     )  # fmt: skip
     print("C", round(res.balanced_acc_mean, 3), res.f1_per_class)
     tree = mlc_tree().fit(F_mlc[m], y_bin)
     used = sorted({names_mlc[i] for i in tree.tree_.feature if i >= 0})
-    sections.append(f"Features usadas pela árvore C: {', '.join(used)}\n")
+    sections.append(f"Features used by tree C: {', '.join(used)}\n")
 
     header = (
-        "# Fase 0: baseline com features + árvores (dataset público, só coleira)\n\n"
-        "> Gerado por `ml/scripts/train_baseline.py`. Não editar à mão.\n\n"
-        "Avaliação: **GroupKFold (5 folds) por cachorro**, ou seja, cada fold testa em cachorros "
-        "que o modelo nunca viu (regra 2). Janelas de 2 s com passo de 1 s (contrato 4.3), rótulo "
-        "pela regra do ADR 0002; janelas sem rótulo claro são descartadas. Dados saturados em "
-        "±16 g / ±2000 dps (ADR 0005). Matrizes de confusão normalizadas por linha.\n\n"
+        "# Phase 0: features + trees baseline (public dataset, collar only)\n\n"
+        "> Generated by `ml/scripts/train_baseline.py`. Do not edit by hand.\n\n"
+        "Evaluation: **GroupKFold (5 folds) by dog**: every fold is tested on dogs the model "
+        "has never seen (rule 2). 2 s windows with a 1 s step (contract 4.3), labeled with the "
+        "ADR 0002 rule; windows without a clear label are dropped. Data saturated at "
+        "±16 g / ±2000 dps (ADR 0005). Confusion matrices are row-normalized.\n\n"
     )
     OUT_MD.parent.mkdir(parents=True, exist_ok=True)
     OUT_MD.write_text(header + "\n".join(sections), encoding="utf-8")
-    print("escrito:", OUT_MD)
+    print("wrote:", OUT_MD)
 
 
 if __name__ == "__main__":

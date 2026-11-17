@@ -1,11 +1,11 @@
-"""CNN 1D pequena (Keras) + conversão para TFLite int8 (ADR 0006).
+"""Small 1D CNN (Keras) + conversion to TFLite int8 (ADR 0006).
 
-Arquitetura (checklist da Fase 0):
-    entrada (100, 7) → 3× [Conv1D k=5 → ReLU → MaxPool 2] (16/32/32 filtros)
-                     → GlobalAveragePooling → Dense softmax
+Architecture (Phase 0 checklist):
+    input (100, 7) → 3× [Conv1D k=5 → ReLU → MaxPool 2] (16/32/32 filters)
+                   → GlobalAveragePooling → Dense softmax
 
-A saída é softmax porque o contrato 4.3 pede probabilidades por classe (a detecção de
-evento do ADR 0002 usa um limiar de probabilidade).
+The output is softmax because contract 4.3 asks for per-class probabilities (event
+detection in ADR 0002 uses a probability threshold).
 """
 
 from __future__ import annotations
@@ -21,9 +21,9 @@ import keras  # noqa: E402
 import tensorflow as tf  # noqa: E402
 from keras import layers  # noqa: E402
 
-# Escala fixa por canal (ax, ay, az, gx, gy, gz, |a|), aplicada antes da rede. Fixa (e não
-# calculada dos dados) para o firmware usar as mesmas constantes. Deixa os canais na
-# mesma ordem de grandeza: aceleração em g, giro em centenas de °/s.
+# Fixed per-channel scale (ax, ay, az, gx, gy, gz, |a|), applied before the network.
+# Fixed (not computed from data) so the firmware uses the same constants. Puts the
+# channels on the same order of magnitude: acceleration in g, gyro in hundreds of °/s.
 INPUT_SCALE = np.array([1, 1, 1, 100, 100, 100, 1], dtype=np.float32)
 
 
@@ -72,9 +72,9 @@ def train_cnn(
     augment_fn: Callable[[np.ndarray, np.random.Generator], np.ndarray] | None = None,
     seed: int = 0,
 ) -> keras.Model:
-    """Treina do zero. `y_idx` são índices 0..n_classes-1 (não os IDs do contrato).
+    """Train from scratch. `y_idx` are indices 0..n_classes-1 (not contract IDs).
 
-    Com `augment_fn`, cada época vê uma versão nova (aleatória) das janelas de treino.
+    With `augment_fn`, every epoch sees a fresh (random) version of the training windows.
     """
     rng = np.random.default_rng(seed)
     model = build_cnn(n_classes, X.shape[1], X.shape[2], seed=seed)
@@ -100,10 +100,10 @@ def predict_float(model: keras.Model, X: np.ndarray) -> np.ndarray:
 
 
 def to_tflite_int8(model: keras.Model, representative: np.ndarray, n_rep: int = 500) -> bytes:
-    """Quantização int8 completa (pesos, ativações, entrada e saída), como o TFLM precisa.
+    """Full int8 quantization (weights, activations, input and output), as TFLM needs.
 
-    `representative`: janelas (já SEM escala) do conjunto de treino, usadas para medir a
-    faixa de cada ativação. Nunca usar dados de teste aqui.
+    `representative`: windows (UNscaled) from the training set, used to measure each
+    activation's range. Never use test data here.
     """
     rng = np.random.default_rng(0)
     idx = rng.choice(len(representative), size=min(n_rep, len(representative)), replace=False)
@@ -121,7 +121,7 @@ def to_tflite_int8(model: keras.Model, representative: np.ndarray, n_rep: int = 
 
 
 def predict_int8(tflite_model: bytes, X: np.ndarray) -> np.ndarray:
-    """Roda o modelo int8 como o chip rodaria: quantiza a entrada, inferência, argmax."""
+    """Run the int8 model the way the chip would: quantize the input, infer, argmax."""
     it = tf.lite.Interpreter(model_content=tflite_model)
     inp, out = it.get_input_details()[0], it.get_output_details()[0]
     scale, zero = inp["quantization"]
@@ -134,8 +134,8 @@ def predict_int8(tflite_model: bytes, X: np.ndarray) -> np.ndarray:
 
 
 def activation_ram_estimate(model: keras.Model) -> int:
-    """Estimativa da RAM de ativações em int8: maior (entrada + saída) entre camadas
-    consecutivas, que é o que o arena do TFLM precisa manter vivo ao mesmo tempo."""
+    """Estimated int8 activation RAM: the largest (input + output) of consecutive layers,
+    which is what the TFLM arena must keep alive at the same time."""
     sizes = [int(np.prod(model.input.shape[1:]))]
     sizes += [int(np.prod(layer.output.shape[1:])) for layer in model.layers[1:]]
     return max(a + b for a, b in zip(sizes, sizes[1:], strict=False))

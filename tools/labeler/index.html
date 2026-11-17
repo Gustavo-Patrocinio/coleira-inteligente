@@ -1,32 +1,32 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Labeler da Coleira</title>
+  <title>Collar Labeler</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uplot@1.6.30/dist/uPlot.min.css">
   <link rel="stylesheet" href="labeler.css">
 </head>
 <body>
   <header>
-    <h1>Labeler da Coleira</h1>
-    <label class="btn primary">Abrir pasta da sessão
+    <h1>Collar Labeler</h1>
+    <label class="btn primary">Open session folder
       <input type="file" id="dirInput" webkitdirectory multiple hidden>
     </label>
     <details class="loose">
-      <summary>ou arquivos soltos</summary>
+      <summary>or individual files</summary>
       <label>imu.csv <input type="file" id="csvInput" accept=".csv"></label>
       <label>meta.json <input type="file" id="metaInput" accept=".json"></label>
-      <label>vídeo <input type="file" id="videoInput" accept="video/*"></label>
+      <label>video <input type="file" id="videoInput" accept="video/*"></label>
     </details>
     <span class="spacer"></span>
-    <label>Rotulador <input id="annotator" size="10" placeholder="seu nome"></label>
-    <label class="btn">Importar rótulos <input type="file" id="labelsInput" accept=".csv" hidden></label>
-    <button id="exportLabels" class="btn primary" disabled>Exportar rótulos</button>
-    <button id="exportMeta" class="btn" disabled>Exportar meta.json</button>
+    <label>Annotator <input id="annotator" size="10" placeholder="your name"></label>
+    <label class="btn">Import labels <input type="file" id="labelsInput" accept=".csv" hidden></label>
+    <button id="exportLabels" class="btn primary" disabled>Export labels</button>
+    <button id="exportMeta" class="btn" disabled>Export meta.json</button>
   </header>
 
-  <div id="status" class="status">Abra a pasta de uma sessão (<code>imu.csv</code> + <code>meta.json</code> + vídeo).</div>
+  <div id="status" class="status">Open a session folder (<code>imu.csv</code> + <code>meta.json</code> + video).</div>
 
   <main>
     <section class="video-col">
@@ -40,43 +40,43 @@
 
     <aside class="side">
       <section>
-        <h2>Sincronização <small>(ADR 0003)</small></h2>
-        <p class="hint">Pause no frame em que a mão bate na caixa → "vídeo". Depois clique no pico do gráfico → "sinal".</p>
+        <h2>Sync <small>(ADR 0003)</small></h2>
+        <p class="hint">Pause on the frame where the hand hits the case → "video". Then click the peak on the chart → "signal".</p>
         <table class="sync">
-          <tr><th></th><th>vídeo</th><th>sinal</th></tr>
-          <tr><th>início</th>
-            <td><button data-tap="start_video_ms">marcar</button> <span id="v_start_video_ms">—</span></td>
-            <td><button data-tap="start_device_ms">marcar</button> <span id="v_start_device_ms">—</span></td></tr>
-          <tr><th>fim</th>
-            <td><button data-tap="end_video_ms">marcar</button> <span id="v_end_video_ms">—</span></td>
-            <td><button data-tap="end_device_ms">marcar</button> <span id="v_end_device_ms">—</span></td></tr>
+          <tr><th></th><th>video</th><th>signal</th></tr>
+          <tr><th>start</th>
+            <td><button data-tap="start_video_ms">mark</button> <span id="v_start_video_ms">—</span></td>
+            <td><button data-tap="start_device_ms">mark</button> <span id="v_start_device_ms">—</span></td></tr>
+          <tr><th>end</th>
+            <td><button data-tap="end_video_ms">mark</button> <span id="v_end_video_ms">—</span></td>
+            <td><button data-tap="end_device_ms">mark</button> <span id="v_end_device_ms">—</span></td></tr>
         </table>
-        <div id="syncInfo" class="hint">sem sincronização</div>
-        <button id="clearSync" class="small">limpar batidas</button>
+        <div id="syncInfo" class="hint">not synced</div>
+        <button id="clearSync" class="small">clear taps</button>
       </section>
 
       <section>
         <h2>Classes</h2>
         <ul id="legend" class="legend"></ul>
-        <p class="hint">Tecla da classe = começa um trecho. Outra tecla = fecha e começa outro.
-          A mesma tecla ou <kbd>Enter</kbd> = fecha. <kbd>Esc</kbd> = cancela.</p>
+        <p class="hint">Class key = start a segment. Another key = close it and start the next.
+          Same key or <kbd>Enter</kbd> = close. <kbd>Esc</kbd> = cancel.</p>
       </section>
 
       <section>
-        <h2>Atalhos</h2>
+        <h2>Shortcuts</h2>
         <ul class="keys">
-          <li><kbd>Espaço</kbd> play/pause</li>
+          <li><kbd>Space</kbd> play/pause</li>
           <li><kbd>←</kbd><kbd>→</kbd> ±1 s · <kbd>Shift</kbd> ±5 s</li>
           <li><kbd>,</kbd><kbd>.</kbd> ±1 frame</li>
-          <li><kbd>[</kbd><kbd>]</kbd> velocidade</li>
-          <li><kbd>Z</kbd> zoom do gráfico</li>
-          <li><kbd>I</kbd> marca trecho atual como incerto</li>
-          <li><kbd>Del</kbd> apaga trecho atual</li>
+          <li><kbd>[</kbd><kbd>]</kbd> speed</li>
+          <li><kbd>Z</kbd> chart zoom</li>
+          <li><kbd>I</kbd> mark current segment as uncertain</li>
+          <li><kbd>Del</kbd> delete current segment</li>
         </ul>
       </section>
 
       <section>
-        <h2>Sessão</h2>
+        <h2>Session</h2>
         <div id="sessionInfo" class="hint">—</div>
       </section>
     </aside>
@@ -84,18 +84,18 @@
 
   <section class="charts">
     <div class="chart-bar">
-      <span>Janela: <b id="winLabel">30 s</b> (<kbd>Z</kbd>)</span>
+      <span>Window: <b id="winLabel">30 s</b> (<kbd>Z</kbd>)</span>
       <span id="speedLabel">1×</span>
-      <span class="hint">Clique no gráfico para ir até aquele instante.</span>
+      <span class="hint">Click the chart to jump to that moment.</span>
     </div>
     <div id="chartAcc"></div>
     <div id="chartGyro"></div>
   </section>
 
   <section class="segments">
-    <h2>Trechos rotulados <small id="segCount"></small></h2>
+    <h2>Labeled segments <small id="segCount"></small></h2>
     <table>
-      <thead><tr><th>início</th><th>fim</th><th>duração</th><th>classe</th><th>confiança</th><th></th></tr></thead>
+      <thead><tr><th>start</th><th>end</th><th>duration</th><th>class</th><th>confidence</th><th></th></tr></thead>
       <tbody id="segBody"></tbody>
     </table>
   </section>

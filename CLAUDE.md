@@ -1,146 +1,173 @@
-# CLAUDE.md: Coleira Inteligente com IA Embarcada
+# CLAUDE.md: Smart Dog Collar with Embedded AI
 
-> Contexto do projeto para o Claude Code. Leia antes de qualquer tarefa neste repositório.
-> Idioma: responda e documente em **português (BR)**. Código, nomes de variáveis e commits em inglês.
-
----
-
-## 1. Visão geral
-
-Coleira para cachorro com um sensor de movimento (IMU) e um microcontrolador que **reconhece o comportamento do cachorro dentro do próprio chip (TinyML)**: parado, andando, correndo, coçando, chacoalhando, comendo e bebendo. A coleira guarda resumos por minuto e sincroniza por BLE com um app, que envia os dados para um backend. O backend calcula o padrão normal de cada cachorro e gera alertas ("coçou 3× mais que o normal", "atividade 40% abaixo do padrão").
-
-**Objetivo:** fazer do jeito certo, como produto, não como protótipo de faculdade. Cada decisão deve ser medida e documentada.
-
-**Princípios:**
-1. **Medir, não chutar:** acurácia com divisão honesta, consumo medido com medidor de corrente, autonomia medida em campo.
-2. **Cada fase termina com algo funcionando** e um critério de pronto objetivo.
-3. **Documentar decisões** em `docs/decisions/` (ADR curto: contexto, decisão, alternativas, consequência).
-4. **Bem-estar do animal acima de tudo:** peso, conforto, irritação na pele e nada de forçar comportamento para coletar dado.
+> Project context for Claude Code. Read before any task in this repository.
+> **Language:** everything in the repository (code, comments, docs, ADRs, UI, commits) is
+> in **English**. Talk to the user in **Portuguese (BR)** in chat.
 
 ---
 
-## 2. Arquitetura
+## 1. Overview
+
+A dog collar with a motion sensor (IMU) and a microcontroller that **recognizes the dog's
+behavior on the chip itself (TinyML)**: still, walking, running, scratching, shaking,
+eating and drinking. The collar stores per-minute summaries and syncs them over BLE to a
+home base station (Wi-Fi) or to the phone app, which send them to a backend. The backend
+learns each dog's normal pattern and raises alerts ("scratched 3× more than usual",
+"activity 40% below normal").
+
+**Goal:** do it right, like a product, not a college prototype. Every decision is measured
+and documented.
+
+**Principles:**
+1. **Measure, don't guess:** accuracy with honest splits, power measured with a current
+   meter, battery life measured in the field.
+2. **Every phase ends with something working** and an objective done criterion.
+3. **Document decisions** in `docs/decisions/` (short ADR: context, decision, alternatives,
+   consequences).
+4. **Animal welfare above all:** weight, comfort, skin irritation, and never forcing
+   behavior to collect data.
+
+---
+
+## 2. Architecture
 
 ```
-┌──────────────────────── COLEIRA ────────────────────────┐
-│ IMU (LSM6DSOX, MLC interno)                              │
-│   ├─ nível 1: árvore de decisão no IMU → parado/movimento│
-│   └─ FIFO + interrupção → acorda o MCU                   │
+┌──────────────────────── COLLAR ─────────────────────────┐
+│ IMU (LSM6DSOX, built-in MLC)                             │
+│   ├─ level 1: decision tree in the IMU → still/moving    │
+│   └─ FIFO + interrupt → wakes the MCU                    │
 │ nRF52840 (Zephyr)                                        │
-│   ├─ nível 2: CNN 1D int8 (TFLite Micro) → classes finas │
-│   ├─ suavização temporal → resumo por minuto → flash     │
-│   └─ BLE: sync em lote, dump bruto, OTA (MCUboot)        │
-└──────────────────────────┬───────────────────────────────┘
-                           │ BLE
-┌──────────── APP (Flutter) ┴──────────────────────────────┐
-│ coleta (vídeo + dados brutos), sync, telas de rotina      │
-└──────────────────────────┬───────────────────────────────┘
-                           │ HTTPS
-┌──────────── BACKEND ─────┴───────────────────────────────┐
-│ API TypeScript (Fastify + Zod) → Postgres + TimescaleDB   │
-│ jobs: baseline por cachorro, detecção de anomalia, push   │
+│   ├─ level 2: int8 1D CNN (TFLite Micro) → fine classes  │
+│   ├─ temporal smoothing → per-minute summary → flash     │
+│   └─ BLE: batch sync, raw dump, OTA (MCUboot)            │
+└──────────────┬──────────────────────────┬────────────────┘
+               │ BLE (at home)            │ BLE (away)
+┌──────────────┴─────────────┐ ┌──────────┴───────────────────┐
+│ BASE STATION (ESP32)       │ │ APP (Flutter)                │
+│ wall plug, auto sync       │ │ collection (video + raw),    │
+│ ADR 0007                   │ │ fallback sync, screens       │
+└──────────────┬─────────────┘ └──────────┬───────────────────┘
+               │ Wi-Fi / HTTPS            │ HTTPS
+┌──────────────┴──────────────────────────┴────────────────┐
+│ BACKEND: TypeScript API (Fastify + Zod) →                │
+│ Postgres + TimescaleDB; jobs: per-dog baseline,          │
+│ anomaly detection, push                                  │
 └───────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 3. Estrutura do repositório (monorepo)
+## 3. Repository layout (monorepo)
 
 ```
-coleira/
+coleira-inteligente/
 ├── CLAUDE.md
-├── README.md                 # vitrine: resultados, fotos, gráficos, decisões
-├── ml/                       # Python: dados, treino, avaliação, quantização
-│   ├── data/                 # NÃO versionado (.gitignore)
-│   │   ├── public/           # dataset público
-│   │   ├── raw/              # sessões coletadas (csv + vídeo)
-│   │   └── labels/           # rótulos exportados
-│   ├── notebooks/            # exploração (numerados: 01_explore.ipynb...)
-│   ├── src/coleira_ml/       # código reutilizável (janelas, features, modelos)
-│   ├── models/               # artefatos exportados (.tflite, .h)
+├── README.md                 # showcase: results, photos, charts, decisions
+├── ml/                       # Python: data, training, evaluation, quantization
+│   ├── data/                 # NOT versioned (.gitignore)
+│   │   ├── public/           # public dataset
+│   │   ├── raw/              # collected sessions (csv + video)
+│   │   └── labels/           # exported labels
+│   ├── notebooks/            # exploration (numbered: 01_explore.ipynb...)
+│   ├── scripts/              # reproducible entry points (download, train, synth data)
+│   ├── src/coleira_ml/       # reusable code (windows, features, models)
+│   ├── models/               # exported artifacts (.tflite, .h)
 │   └── tests/
 ├── firmware/                 # Zephyr / nRF Connect SDK
-│   ├── app/                  # aplicação principal
-│   ├── logger/               # firmware coletor (Fase 1)
-│   ├── boards/               # overlays (XIAO, depois a PCB própria)
-│   └── west.yml              # versão do SDK fixada
+│   ├── app/                  # main application
+│   ├── logger/               # collection firmware (Phase 1)
+│   ├── boards/               # overlays (XIAO, later the custom PCB)
+│   └── west.yml              # pinned SDK version
+├── basestation/              # ESP32 home base station (ADR 0007)
 ├── app/                      # Flutter
 ├── backend/                  # TypeScript (Fastify)
 │   ├── src/
-│   ├── migrations/           # SQL puro (hypertables, continuous aggregates)
+│   ├── migrations/           # plain SQL (hypertables, continuous aggregates)
 │   └── tests/
 ├── tools/
-│   └── labeler/              # ferramenta web de rotulagem (HTML/JS + uPlot)
+│   └── labeler/              # web labeling tool (HTML/JS + uPlot)
 ├── hardware/
-│   ├── cad/                  # caixa (fontes + STL/STEP)
-│   └── pcb/                  # KiCad (Fase 6)
+│   ├── cad/                  # enclosure (sources + STL/STEP)
+│   └── pcb/                  # KiCad (Phase 6)
 └── docs/
     ├── decisions/            # ADRs
-    ├── energy-budget.md      # orçamento de energia medido
-    ├── results.md            # acurácia por fase, matrizes de confusão
-    └── protocols/            # protocolo de coleta, de rotulagem
+    ├── product/              # owner-facing indicators and screens
+    ├── energy-budget.md      # measured power budget
+    ├── public-dataset.md     # public dataset analysis
+    ├── results.md            # accuracy per phase, confusion matrices
+    └── protocols/            # collection and labeling protocols
 ```
 
 ---
 
-## 4. Contratos (não mudar sem ADR)
+## 4. Contracts (do not change without an ADR)
 
-### 4.1 Classes (IDs estáveis)
+### 4.1 Classes (stable IDs; names: ADR 0008)
 
-| ID | Classe | Fase em que entra |
-|----|--------|-------------------|
-| 0 | `parado` (deitado, sentado, em pé, dormindo, farejar parado; ADR 0004) | 0 |
-| 1 | `andando` (inclui farejar andando) | 0 |
-| 2 | `correndo` (trote e galope) | 0 |
-| 3 | `cocando` | 1–2 |
-| 4 | `chacoalhando` | 1–2 |
-| 5 | `comendo` | 6 |
-| 6 | `bebendo` | 6 |
-| 255 | `desconhecido` / transição | — |
+| ID | Class | Phase it enters |
+|----|-------|-----------------|
+| 0 | `still` (lying, sitting, standing, sleeping, stationary sniffing; ADR 0004) | 0 |
+| 1 | `walking` (includes sniffing while walking) | 0 |
+| 2 | `running` (trot and gallop) | 0 |
+| 3 | `scratching` | 1–2 |
+| 4 | `shaking` | 1–2 |
+| 5 | `eating` | 6 |
+| 6 | `drinking` | 6 |
+| 255 | `unknown` / transition | — |
 
-Os IDs **nunca** são reaproveitados nem reordenados. Classe nova ganha ID novo.
+IDs are **never** reused or reordered. A new class gets a new ID.
 
-### 4.2 Amostragem do IMU
-- 50 Hz, acelerômetro ±16 g (ADR 0005: chacoalhar passa de 8 g) e giroscópio ±2000 dps (máximo do chip; satura em parte do chacoalhar, aceito).
-- Montagem: embaixo do pescoço, sempre na mesma orientação física (marcada na caixa).
+### 4.2 IMU sampling
+- 50 Hz, accelerometer ±16 g (ADR 0005: shaking exceeds 8 g) and gyroscope ±2000 dps (chip
+  maximum; saturates during part of the shaking, accepted).
+- Mounting: under the neck, always in the same physical orientation (marked on the case).
 
-### 4.3 Janela do modelo
-- 2 s = 100 amostras, sobreposição de 50% (passo de 1 s).
-- Entrada: 7 canais = ax, ay, az, gx, gy, gz e magnitude do acelerômetro.
-- Saída: probabilidades por classe.
-- Suavização (ADR 0002):
-  - classes de estado (0, 1, 2, 5, 6): maioria nas últimas 5 janelas;
-  - classes de evento (3, 4): evento confirmado com prob. ≥ `p_evento` em ≥ `n_min` janelas consecutivas (calibrados na Fase 2); o evento tem prioridade sobre o estado.
-- Rótulo da janela no treino: classe com ≥ 70% das amostras; para 3 e 4, basta ≥ 50% ou ≥ 1 s contínuo. Fora disso, a janela é descartada ou rotulada 255.
+### 4.3 Model window
+- 2 s = 100 samples, 50% overlap (1 s step).
+- Input: 7 channels = ax, ay, az, gx, gy, gz and accelerometer magnitude.
+- Output: per-class probabilities.
+- Smoothing (ADR 0002):
+  - state classes (0, 1, 2, 5, 6): majority over the last 5 windows;
+  - event classes (3, 4): event confirmed when prob. ≥ `p_event` in ≥ `n_min` consecutive
+    windows (calibrated in Phase 2); events override the state.
+- Training window label: class with ≥ 70% of the samples; for 3 and 4, ≥ 50% or ≥ 1 s
+  contiguous is enough. Otherwise the window is dropped or labeled 255.
 
-### 4.4 Pacote BLE de dados brutos (Fase 1), little-endian
+### 4.4 Raw BLE data packet (Phase 1), little-endian
 
-| Offset | Tipo | Campo |
+| Offset | Type | Field |
 |--------|------|-------|
 | 0 | uint8 | `version` (=1) |
 | 1 | uint8 | `type` (0x01 = raw) |
-| 2 | uint16 | `seq` (contador de pacotes, dá a volta) |
-| 4 | uint32 | `device_ms` (uptime da 1ª amostra) |
-| 8 | int16 × 6 × N | amostras (ax, ay, az, gx, gy, gz), N = 10 |
+| 2 | uint16 | `seq` (packet counter, wraps around) |
+| 4 | uint32 | `device_ms` (uptime of the 1st sample) |
+| 8 | int16 × 6 × N | samples (ax, ay, az, gx, gy, gz), N = 10 |
 
-Tamanho: 8 + 120 = 128 bytes → exige MTU ≥ 131.
+Size: 8 + 120 = 128 bytes → requires MTU ≥ 131.
 
-O app grava cada pacote com `phone_ts` de recebimento. Dentro do pacote, o tempo da amostra i = `device_ms` + i × 20 ms. Entre pacotes, **não** se supõe ODR exato: a taxa real é estimada por regressão de `device_ms` e o alinhamento com o vídeo usa batidinhas no início e no fim, com correção linear (ADR 0003).
+The app stores each packet with its receive `phone_ts`. Inside a packet, sample i's time =
+`device_ms` + i × 20 ms. Across packets an exact ODR is **not** assumed: the real rate is
+estimated by regression on `device_ms`, and video alignment uses taps at the start and at
+the end with a linear correction (ADR 0003).
 
-### 4.5 CSV de sessão bruta (`ml/data/raw/<session_id>/imu.csv`)
-`phone_ts_ms, device_ms, seq, ax, ay, az, gx, gy, gz` (valores crus em int16; a escala fica no `meta.json`)
+### 4.5 Raw session CSV (`ml/data/raw/<session_id>/imu.csv`)
+`phone_ts_ms, device_ms, seq, ax, ay, az, gx, gy, gz` (raw int16 values; the scale lives in
+`meta.json`)
 
-`meta.json`: `session_id, dog_id, device_id, start_phone_ts, video_file, video_start_phone_ts_ms, accel_range, gyro_range, odr_hz, location, surface, notes, sync_taps`
+`meta.json`: `session_id, dog_id, device_id, start_phone_ts, video_file,
+video_start_phone_ts_ms, accel_range, gyro_range, odr_hz, location, surface, notes,
+sync_taps`
 
-`sync_taps` = `{start_video_ms, end_video_ms, start_device_ms, end_device_ms}`, preenchido pelo labeler depois do alinhamento (ADR 0003).
+`sync_taps` = `{start_video_ms, end_video_ms, start_device_ms, end_device_ms}`, filled in by
+the labeler after alignment (ADR 0003).
 
-### 4.6 CSV de rótulos (`ml/data/labels/<session_id>.csv`)
-`start_ms, end_ms, class_id, annotator, confidence` (tempo relativo ao início do vídeo)
+### 4.6 Label CSV (`ml/data/labels/<session_id>.csv`)
+`start_ms, end_ms, class_id, annotator, confidence` (time relative to the start of the video)
 
-### 4.7 Resumo por minuto (flash → BLE → backend)
+### 4.7 Per-minute summary (flash → BLE → backend)
 Little-endian, v1 (ADR 0001):
 
-| Offset | Tipo | Campo |
+| Offset | Type | Field |
 |--------|------|-------|
 | 0 | uint8 | `version` (=1) |
 | 1 | uint32 | `minute_ts` (epoch s, UTC) |
@@ -149,227 +176,242 @@ Little-endian, v1 (ADR 0001):
 | 13 | uint8 | `battery_pct` |
 | 14 | uint8 | `flags` |
 
-= 15 bytes/min, ~21 KB/dia. Invariante: `sum(seconds_per_class) + unknown_s ≤ 60`. Classe nova → `version` novo.
+= 15 bytes/min, ~21 KB/day. Invariant: `sum(seconds_per_class) + unknown_s ≤ 60`. A new
+class or field → new `version`.
 
 ---
 
-## 5. Stack e convenções
+## 5. Stack and conventions
 
-| Parte | Stack | Convenções |
-|-------|-------|------------|
-| ML | Python 3.12, `uv`, numpy, pandas, scipy, scikit-learn, Keras 3/TensorFlow (ADR 0006), TFLite (conversão int8) | `ruff` + `pytest`; notebooks só exploram, lógica fica em `src/` |
-| Firmware | Zephyr via nRF Connect SDK (versão fixada no `west.yml`), C, TFLite Micro, MCUboot | Kconfig no `prj.conf`; zero `printk` em release; consumo medido a cada mudança relevante |
-| App | Flutter, `flutter_blue_plus`, `camera` | Lógica BLE isolada num serviço testável |
-| Backend | Node + TypeScript, Fastify, Zod, `pg`/Kysely, Postgres 16 + TimescaleDB | Migrations em SQL puro; ingestão idempotente (`ON CONFLICT DO NOTHING`) |
-| Labeler | HTML + JS puro, uPlot | Sem build step; abre direto no navegador |
-| Hardware | CAD (caixa), KiCad (PCB) | Exportar STEP + STL a cada versão |
+| Part | Stack | Conventions |
+|------|-------|-------------|
+| ML | Python 3.12, `uv`, numpy, pandas, scipy, scikit-learn, Keras 3/TensorFlow (ADR 0006), TFLite (int8 conversion) | `ruff` + `pytest`; notebooks only explore, logic lives in `src/` |
+| Firmware | Zephyr via nRF Connect SDK (version pinned in `west.yml`), C, TFLite Micro, MCUboot | Kconfig in `prj.conf`; zero `printk` in release; power measured after every relevant change |
+| Base station | ESP32 (Zephyr or ESP-IDF, decided when it starts), BLE central + Wi-Fi | Same BLE sync protocol as the app; per-device API credential |
+| App | Flutter, `flutter_blue_plus`, `camera` | BLE logic isolated in a testable service |
+| Backend | Node + TypeScript, Fastify, Zod, `pg`/Kysely, Postgres 16 + TimescaleDB | Plain SQL migrations; idempotent ingestion (`ON CONFLICT DO NOTHING`) |
+| Labeler | Plain HTML + JS, uPlot | No build step; opens directly in the browser; logic tested with `node --test` |
+| Hardware | CAD (enclosure), KiCad (PCB) | Export STEP + STL for every version |
 
 **Commits:** Conventional Commits (`feat(firmware): ...`, `fix(ml): ...`).
 
 ---
 
-## 6. Regras para o Claude
+## 6. Rules for Claude
 
-1. **Nunca** versionar `ml/data/`, vídeos ou modelos grandes. Conferir o `.gitignore`.
-2. **Divisão treino/teste sempre por grupo** (cachorro no dataset público; sessão/dia nos dados próprios). Divisão aleatória por janela é proibida, porque infla a acurácia.
-3. Não alterar os contratos da seção 4 sem criar um ADR.
-4. Todo firmware a partir da Fase 3 mantém **OTA funcionando**; uma mudança que quebre a atualização é bloqueante.
-5. Ao reportar resultado de modelo, mostrar sempre: acurácia balanceada, F1 por classe, matriz de confusão, tamanho (KB) e RAM de inferência.
-6. Consumo de energia só é afirmado com medição (PPK2) e registrado em `docs/energy-budget.md`.
-7. Preferir soluções simples e explicar o porquê; o projeto também é de aprendizado.
-8. Ao terminar uma tarefa de fase, atualizar o checklist abaixo.
-
----
-
-## 7. Plano por fases
-
-### Fase 0: pipeline de ML com dataset público (sem hardware)
-**Objetivo:** provar o pipeline completo e ter um modelo inicial.
-
-- [x] Setup `ml/` com `uv`, ruff e pytest
-- [x] Baixar o dataset público (`ml/scripts/download_public.py`; resumo em `docs/dataset-publico.md`): Kumpulainen et al. (2021), *"Dog behaviour classification with movement sensors placed on the harness and the collar"* (Mendeley Data). Conferir no README dele a lista exata de classes e a frequência. Se houver rótulos de chacoalhar/comer/beber/farejar, guardar o mapeamento para pré-treinar as classes 3–6 depois
-- [x] Usar **só o sensor da coleira** (`coleira_ml.public_dataset.load_collar`)
-- [x] Notebook `01_explore`: plotar trechos de cada comportamento
-- [x] Reamostrar para 50 Hz; mapear as classes do dataset para os IDs 0–2 (também 4–6, que o dataset tem; saturação em ±16 g/±2000 dps, ADR 0005)
-- [x] Janelamento (2 s, 50%); rótulo da janela pela regra da seção 4.3 (≥ 70%; regra especial para eventos curtos)
-- [x] Augmentation: rotação 3D aleatória dos eixos, pequeno ruído e variação de escala
-- [x] `GroupKFold` por cachorro
-- [x] Baseline: features (média, desvio, mín, máx, energia, frequência dominante FFT, magnitude) + Random Forest **raso** → acur. balanceada 0,956 (ver `docs/results.md`)
-- [x] Variante "compatível com MLC" (parado × movimento: 0,986 com 29 nós; falta retreinar com rotação): árvore rasa usando só as features que o MLC da ST calcula (média, variância, energia, pico a pico, cruzamentos por zero, mín/máx, filtros; **sem FFT**). É ela que vai para o IMU na Fase 5
-- [x] CNN 1D pequena (ex.: 3× [Conv1D k=5 → ReLU → MaxPool], 16/32/32 filtros → GAP → Dense), em Keras (ADR 0006)
-- [x] Quantizar para int8; comparar a acurácia float vs int8 (sem perda: 0,957 × 0,957)
-- [x] `docs/results.md`: tabela modelo × acurácia balanceada × F1 × KB
-
-**Pronto quando:** CNN int8 com acurácia balanceada ≥ 85% em 3 classes, em cachorros não vistos, ocupando < 64 KB.
-
-✅ **Concluída em 2026-11-16:** CNN int8 com 0,957 de acurácia balanceada (GroupKFold 5× por cachorro), 18,8 KB, robusta à rotação da coleira.
+1. **Never** version `ml/data/`, videos or large models. Check `.gitignore`.
+2. **Train/test splits always by group** (dog in the public dataset; session/day in our own
+   data). Random splits by window are forbidden, because they inflate accuracy.
+3. Do not change the section 4 contracts without an ADR.
+4. All firmware from Phase 3 onward keeps **OTA working**; a change that breaks updates is
+   blocking.
+5. When reporting model results, always show: balanced accuracy, per-class F1, confusion
+   matrix, size (KB) and inference RAM.
+6. Power consumption is only claimed with a measurement (PPK2) and recorded in
+   `docs/energy-budget.md`.
+7. Prefer simple solutions and explain why; the project is also a learning project.
+8. When a phase task is done, update the checklist below.
+9. Repository content in English; chat with the user in Portuguese (BR).
 
 ---
 
-### Fase 1: coleta e rotulagem com o seu cachorro
-**Objetivo:** 2–3 h de dados próprios sincronizados com vídeo, incluindo coçar e chacoalhar.
+## 7. Plan by phase
+
+### Phase 0: ML pipeline on a public dataset (no hardware)
+**Goal:** prove the complete pipeline and get a first model.
+
+- [x] Set up `ml/` with `uv`, ruff and pytest
+- [x] Download the public dataset (`ml/scripts/download_public.py`; summary in `docs/public-dataset.md`): Kumpulainen et al. (2021), *"Dog behaviour classification with movement sensors placed on the harness and the collar"* (Mendeley Data). Check the exact class list and sampling rate in its README. If it has shaking/eating/drinking/sniffing labels, keep the mapping to pre-train classes 3–6 later
+- [x] Use **only the collar sensor** (`coleira_ml.public_dataset.load_collar`)
+- [x] Notebook `01_explore`: plot stretches of each behavior
+- [x] Resample to 50 Hz; map the dataset classes to IDs 0–2 (also 4–6, which the dataset has; saturation at ±16 g/±2000 dps, ADR 0005)
+- [x] Windowing (2 s, 50%); window label by the section 4.3 rule (≥ 70%; special rule for short events)
+- [x] Augmentation: random 3D axis rotation, small noise and scale variation
+- [x] `GroupKFold` by dog
+- [x] Baseline: features (mean, std, min, max, energy, dominant FFT frequency, magnitude) + **shallow** Random Forest → balanced accuracy 0.956 (see `docs/results.md`)
+- [x] MLC-compatible variant: shallow tree using only features ST's MLC computes (mean, variance, energy, peak-to-peak, zero-crossings, min/max, filters; **no FFT**). This is the one that goes into the IMU in Phase 5 (still × moving: 0.986 with 29 nodes; still needs retraining with rotation)
+- [x] Small 1D CNN (e.g. 3× [Conv1D k=5 → ReLU → MaxPool], 16/32/32 filters → GAP → Dense), in Keras (ADR 0006)
+- [x] Quantize to int8; compare float vs int8 accuracy (no loss: 0.957 × 0.957)
+- [x] `docs/results.md`: table model × balanced accuracy × F1 × KB
+
+**Done when:** int8 CNN with balanced accuracy ≥ 85% on 3 classes, on unseen dogs, under 64 KB.
+
+✅ **Completed 2026-11-16:** int8 CNN with 0.957 balanced accuracy (GroupKFold 5× by dog), 18.8 KB, robust to collar rotation.
+
+---
+
+### Phase 1: collection and labeling with your own dog
+**Goal:** 2–3 h of our own data synced with video, including scratching and shaking.
 
 **Hardware:**
-- [ ] Seeed XIAO nRF52840 Sense (IMU de 6 eixos + microfone + carregador embutidos). O IMU dela é um LSM6DS3TR-C, **sem MLC**. O MLC só chega com a troca de IMU na Fase 5
-- [ ] Sonda SWD (J-Link EDU Mini ou Raspberry Pi Pico como debugprobe): debug no Zephyr e, na Fase 3, gravação do MCUboot no lugar do bootloader UF2 de fábrica
-- [ ] LiPo 3,7 V ~250 mAh com proteção (PCM), soldada nos pads BAT+/BAT− embaixo da XIAO (a placa não tem conector JST)
-- [ ] Caixa provisória impressa em 3D, com a orientação marcada
+- [ ] Seeed XIAO nRF52840 Sense (6-axis IMU + microphone + charger on board). Its IMU is an LSM6DS3TR-C, **without MLC**. The MLC only arrives with the IMU swap in Phase 5
+- [ ] SWD probe (Raspberry Pi Pico H as debugprobe, or J-Link EDU Mini): Zephyr debugging and, in Phase 3, flashing MCUboot over the factory UF2 bootloader
+- [ ] 3.7 V ~250 mAh LiPo with protection (PCM), soldered to the BAT+/BAT− pads under the XIAO (the board has no JST connector)
+- [ ] Provisional 3D-printed case, with the orientation marked
 
 **Firmware `firmware/logger/`:**
-- [ ] Leitura do IMU a 50 Hz (driver Zephyr; conferir o modelo exato do IMU da placa)
-- [ ] Serviço GATT próprio, característica com notify, pacote da seção 4.4
-- [ ] Negociação de MTU ≥ 131 (+ Data Length Extension); contador `seq` para detectar perda
-- [ ] Plano B: se o Zephyr travar por mais de 1 fim de semana, fazer o logger em Arduino (core Seeed + ArduinoBLE) mantendo o mesmo formato de pacote
+- [ ] Read the IMU at 50 Hz (Zephyr driver; check the board's exact IMU model)
+- [ ] Custom GATT service, notify characteristic, section 4.4 packet
+- [ ] MTU ≥ 131 negotiation (+ Data Length Extension); `seq` counter to detect loss
+- [ ] Plan B: if Zephyr blocks progress for more than 1 weekend, write the logger in Arduino (Seeed core + ArduinoBLE) keeping the same packet format
 
-**App de coleta (`app/`, modo coleta):**
-- [ ] Conectar na coleira, filmar e gravar o CSV ao mesmo tempo (seção 4.5)
-- [ ] Gerar o `meta.json` da sessão (incluindo `video_start_phone_ts_ms`)
-- [ ] Exportar a sessão (compartilhar ou copiar para o PC)
+**Collection app (`app/`, collection mode):**
+- [ ] Connect to the collar, film and write the CSV at the same time (section 4.5)
+- [ ] Generate the session `meta.json` (including `video_start_phone_ts_ms`)
+- [ ] Export the session (share or copy to the PC)
 
-**Protocolo (`docs/protocols/coleta.md`):**
-- [ ] Adaptação: alguns dias usando a coleira sem gravar; conferir a pele
-- [ ] Sincronização: 3 batidinhas na caixa na frente da câmera no **início e no fim** de cada sessão (ADR 0003)
-- [ ] Sessões de 10–20 min: dormindo, passeio com guia, brincadeira, ração, água
-- [ ] Sessões longas para capturar comportamentos espontâneos (coçar); gravar depois do banho (chacoalhar)
-- [ ] Variar dias, horários e pisos
-- [ ] Gravar 2–3 **noites** com câmera de visão noturna: gabarito de dormindo × deitado acordado e contagem de respirações (ver `docs/product/indicadores.md`, *Sono*)
+**Protocol (`docs/protocols/collection.md`):**
+- [ ] Adaptation: a few days wearing the collar without recording; check the skin
+- [ ] Sync: 3 taps on the case in front of the camera at the **start and end** of each session (ADR 0003)
+- [ ] 10–20 min sessions: sleeping, leash walk, play, kibble, water
+- [ ] Long sessions to capture spontaneous behaviors (scratching); record after a bath (shaking)
+- [ ] Vary days, times and floors
+- [ ] Record 2–3 **nights** with a night-vision camera: ground truth for asleep × lying awake and breath counting (see `docs/product/indicators.md`, *Sleep*)
+- [ ] Battery and water safety rules (charge off the dog, discard swollen cells, no immersion until Phase 6)
 
-**Ferramenta de rotulagem `tools/labeler/`:**
-- [x] Carregar vídeo + CSV; gráfico uPlot com cursor sincronizado ao vídeo
-- [x] Alinhamento usando as batidinhas do início e do fim (offset + correção de deriva linear); gravar `sync_taps` no `meta.json`
-- [x] Atalhos de teclado para marcar início/fim por classe
-- [x] Exportar no formato da seção 4.6
-- (testado com sessão sintética via `ml/scripts/make_synthetic_session.py`; falta validar com uma sessão real)
+**Labeling tool `tools/labeler/`:**
+- [x] Load video + CSV; uPlot chart with cursor synced to the video
+- [x] Alignment using start and end taps (offset + linear drift correction); write `sync_taps` to `meta.json`
+- [x] Keyboard shortcuts to mark start/end per class
+- [x] Export in the section 4.6 format
+- (tested with a synthetic session via `ml/scripts/make_synthetic_session.py`; still to validate with a real session)
 
-**Fechamento:**
-- [ ] Rodar o modelo da Fase 0 nos dados próprios e registrar a queda (domain gap) em `docs/results.md`
+**Wrap-up:**
+- [ ] Run the Phase 0 model on our own data and record the drop (domain gap) in `docs/results.md`
 
-**Pronto quando:** ≥ 2 h rotuladas, ≥ 3 min acumulados de cada classe 0–4, perda de pacotes < 1%.
-
----
-
-### Fase 2: modelo rodando no chip (ainda no USB)
-**Objetivo:** classificação ao vivo dentro do nRF batendo com o vídeo.
-
-- [ ] Fine-tuning: pré-treino no público + ajuste nos dados próprios (classes 0–4)
-- [ ] Avaliação dividida por sessão/dia
-- [ ] Exportar `.tflite` int8 → array C (`models/`)
-- [ ] `firmware/app/`: integrar TFLite Micro; definir o tamanho do tensor arena
-- [ ] Medir o tempo de inferência e a RAM usada
-- [ ] Suavização conforme a seção 4.3: maioria para estados, detecção de evento para 3–4; calibrar `p_evento`/`n_min` em sessão de validação; teste unitário com sequências sintéticas
-- [ ] Teste ao vivo: classe impressa na serial vs vídeo, numa sessão nova
-
-**Pronto quando:** F1 ≥ 0,85 nas classes 0–2 e ≥ 0,70 em coçar/chacoalhar numa sessão nunca vista; inferência < 50 ms.
+**Done when:** ≥ 2 h labeled, ≥ 3 min accumulated for each class 0–4, packet loss < 1%.
 
 ---
 
-### Fase 3: autonomia sem fio
-**Objetivo:** um dia inteiro registrado só com bateria.
+### Phase 2: model running on the chip (still on USB)
+**Goal:** live classification inside the nRF matching the video.
 
-- [ ] MCUboot + DFU por BLE (OTA) funcionando **antes** do resto (gravar o MCUboot via SWD, já que a XIAO vem com bootloader UF2 da Adafruit)
-- [ ] Resumo por minuto (seção 4.7) gravado em flash (buffer circular, ex.: ZMS/NVS ou partição própria)
-- [ ] Serviço BLE de sync: o app pede "desde o minuto X" e recebe o lote
-- [ ] Modo dump bruto, ativável pelo app (para continuar coletando dataset)
-- [ ] Relógio: o app envia a hora atual ao conectar; a coleira mantém
-- [ ] App: tela de rotina do dia (linha do tempo por classe + indicadores Exercício, Noite e Pele; ver `docs/product/indicadores.md`), sync ao abrir
-- [ ] Primeira medição de consumo com PPK2 → `docs/energy-budget.md`
+- [ ] Fine-tuning: pre-train on public data + adapt on our own data (classes 0–4)
+- [ ] Evaluation split by session/day
+- [ ] Export int8 `.tflite` → C array (`models/`)
+- [ ] `firmware/app/`: integrate TFLite Micro; size the tensor arena
+- [ ] Measure inference time and RAM used
+- [ ] Smoothing per section 4.3: majority for states, event detection for 3–4; calibrate `p_event`/`n_min` on a validation session; unit tests with synthetic sequences
+- [ ] Live test: class printed on serial vs video, on a new session
 
-**Pronto quando:** 24 h seguidas registradas sem fio, sync sem perda nem duplicata, OTA testada.
+**Done when:** F1 ≥ 0.85 on classes 0–2 and ≥ 0.70 on scratching/shaking on a never-seen session; inference < 50 ms.
 
 ---
 
-### Fase 4: backend e alertas
-**Objetivo:** o sistema entende o que é normal para cada cachorro e avisa quando foge disso.
+### Phase 3: wireless autonomy
+**Goal:** a whole day recorded on battery alone.
+
+- [ ] MCUboot + BLE DFU (OTA) working **before** everything else (flash MCUboot via SWD, since the XIAO ships with Adafruit's UF2 bootloader)
+- [ ] Per-minute summary (section 4.7) written to flash (ring buffer, e.g. ZMS/NVS or a dedicated partition)
+- [ ] BLE sync service: the client asks "since minute X" and receives the batch (same protocol for the app and the base station, ADR 0007)
+- [ ] Raw dump mode, enabled from the app (to keep collecting dataset)
+- [ ] Clock: the client sends the current time on connect; the collar keeps it
+- [ ] App: daily routine screen (timeline per class + Exercise, Sleep and Skin indicators; see `docs/product/indicators.md`), sync on open
+- [ ] First power measurement with PPK2 → `docs/energy-budget.md`
+
+**Done when:** 24 h in a row recorded wirelessly, sync with no loss or duplicates, OTA tested.
+
+---
+
+### Phase 4: backend, alerts and home base station
+**Goal:** the system learns what is normal for each dog, warns when it drifts, and data
+arrives on its own.
 
 - [ ] Postgres + TimescaleDB via Docker Compose
-- [ ] Tabelas: `users`, `dogs`, `devices`, `activity_minute` (hypertable), `alerts`
-- [ ] Continuous aggregates por hora e por dia
-- [ ] API Fastify + Zod: auth (JWT), CRUD de cachorros/dispositivos, `POST /ingest` em lote **idempotente** (chave `device_id + minute_ts`)
-- [ ] Endpoints de consulta: rotina do dia, tendências da semana/mês
-- [ ] Job de baseline: por cachorro × hora do dia × (dia útil/fim de semana), janela de 28 dias, **mediana + MAD**
-- [ ] Alertas por z-score robusto (|z| > 3) para atividade total, tempo coçando e agitação noturna (vezes que levantou entre 23h e 6h); exigir ≥ 14 dias de histórico antes de alertar
-- [ ] Feedback "fez sentido / falso alarme" em cada alerta, guardado para calibrar os limiares
+- [ ] Tables: `users`, `dogs`, `devices`, `activity_minute` (hypertable), `alerts`
+- [ ] Continuous aggregates per hour and per day
+- [ ] Fastify + Zod API: auth (JWT), dogs/devices CRUD, **idempotent** batch `POST /ingest` (key `device_id + minute_ts`), recording which path delivered each batch (base station or app)
+- [ ] Query endpoints: daily routine, weekly/monthly trends, sleep summary
+- [ ] Baseline job: per dog × hour of day × (weekday/weekend), 28-day window, **median + MAD**
+- [ ] Alerts by robust z-score (|z| > 3) for total activity, scratching time and night restlessness (times he got up between 23:00 and 06:00); require ≥ 14 days of history before alerting
+- [ ] "Made sense / false alarm" feedback on each alert, stored to calibrate thresholds
 - [ ] Push via Firebase Cloud Messaging
-- [ ] Testes: ingestão duplicada, buracos no sync, fuso horário
-- [ ] App: telas de tendência e de alertas
+- [ ] Tests: duplicate ingestion, sync gaps, time zones
+- [ ] App: trends and alerts screens
+- [ ] **Base station (`basestation/`, ADR 0007):** ESP32 (e.g. XIAO ESP32-C3) as BLE central that pulls new summaries from the collar and uploads them over Wi-Fi to `/ingest`; Wi-Fi provisioning from the app over BLE; per-device credential; collar prefers the base station when both clients are present
+- [ ] Phone keeps working as fallback sync away from home
 
-**Pronto quando:** um alerta real dispara corretamente com dados do seu cachorro; ingestão repetida não duplica.
-
----
-
-### Fase 5: energia de verdade (classificação em dois níveis)
-**Objetivo:** autonomia de semanas.
-
-- [ ] Trocar para o IMU com Machine Learning Core (LSM6DSOX ou LSM6DSV16X) num breakout
-- [ ] Treinar uma árvore rasa "parado vs movimento" com features suportadas pelo MLC; gerar a configuração (ferramentas da ST)
-- [ ] MCU em sleep profundo; acorda por interrupção do MLC
-- [ ] Enquanto parado, o MCU nem roda a CNN: só contabiliza tempo `parado`
-- [ ] FIFO do IMU em lote para reduzir os despertares
-- [ ] Ajustar o intervalo de advertising/conexão BLE
-- [ ] Medidor de carga (MAX17048) → bateria real no app
-- [ ] Medir com PPK2 cada modo: sleep, ativo, inferência, sync
-
-**Metas (a validar com medição):**
-
-| Modo | Meta de consumo médio |
-|------|-----------------------|
-| Parado (só o MLC + sleep) | < 50 µA |
-| Em movimento (CNN ativa) | < 1 mA |
-| Média do dia | < 200 µA → semanas com ~250 mAh |
-
-**Pronto quando:** autonomia medida em campo ≥ 14 dias.
+**Done when:** a real alert fires correctly with your dog's data; repeated ingestion does
+not duplicate; with the base station on, data reaches the backend within minutes of the
+dog coming home, without opening the app.
 
 ---
 
-### Fase 6: produto
-**Objetivo:** algo que você usaria todo dia.
+### Phase 5: real energy (two-level classification)
+**Goal:** weeks of battery life.
 
-- [ ] Caixa definitiva: vedação IP67 (anel de vedação), PETG/SLA + camada externa em TPU contra impacto e mordida
-- [ ] Carregamento magnético por pogo pins (sem USB exposta)
-- [ ] Peso < 3% do peso do cachorro; centro de massa embaixo do pescoço
-- [ ] PCB própria no KiCad: módulo nRF52840 + IMU com MLC + carregador + medidor de carga + antena conforme a referência do módulo. Preferir módulo **já homologado na Anatel**: muda pouco o custo e simplifica muito a homologação do produto
-- [ ] (Opcional) Fusão com áudio para `comendo`/`bebendo` (classes 5–6), ativando o microfone só quando o IMU indicar cabeça baixa + movimento leve
-- [ ] README final: fotos, vídeo de demo, gráficos de acurácia e de energia, decisões
+- [ ] Switch to an IMU with a Machine Learning Core (LSM6DSOX or LSM6DSV16X) on a breakout
+- [ ] Train a shallow "still vs moving" tree with MLC-supported features; generate the configuration (ST tools)
+- [ ] MCU in deep sleep; wakes on the MLC interrupt
+- [ ] While still, the MCU does not even run the CNN: it only accounts `still` time
+- [ ] Batch the IMU FIFO to reduce wake-ups
+- [ ] Tune BLE advertising/connection intervals
+- [ ] Fuel gauge (MAX17048) → real battery in the app
+- [ ] Measure each mode with PPK2: sleep, active, inference, sync
+- [ ] (Experimental) sleeping respiratory rate: sparse 1-min sampling every 30 min while asleep; validate against Phase 1 night videos
 
-**Pronto quando:** coleira vedada rodando no dia a dia por 1 mês sem intervenção.
+**Targets (to validate by measurement):**
 
----
+| Mode | Target average current |
+|------|------------------------|
+| Still (MLC + sleep only) | < 50 µA |
+| Moving (CNN active) | < 1 mA |
+| Daily average | < 200 µA → weeks on ~250 mAh |
 
-## 8. Lista de materiais (protótipo)
-
-| Item | Fase | Observação |
-|------|------|------------|
-| Seeed XIAO nRF52840 Sense | 1 | Protótipo principal |
-| LiPo 3,7 V 150–300 mAh com PCM | 1 | Soldada nos pads BAT+/BAT− (XIAO não tem JST); conferir a polaridade com multímetro |
-| Sonda SWD (J-Link EDU Mini ou Pico debugprobe) | 1 | Debug; obrigatória para gravar o MCUboot (Fase 3) |
-| Filamento PETG + TPU | 1/6 | Caixa |
-| Nordic Power Profiler Kit II (PPK2) | 3 | Essencial para medir consumo |
-| Breakout LSM6DSOX ou LSM6DSV16X | 5 | Machine Learning Core |
-| Breakout MAX17048 | 5 | Medidor de carga |
-| Pogo pins magnéticos (2 ou 4 pinos) | 6 | Carregamento vedado |
-| Anel de vedação (o-ring) | 6 | Dimensionar no CAD |
+**Done when:** battery life measured in the field ≥ 14 days.
 
 ---
 
-## 9. Riscos e mitigação
+### Phase 6: product
+**Goal:** something you would use every day.
 
-| Risco | Mitigação |
-|-------|-----------|
-| Rotulagem cansativa → projeto para | Ferramenta própria com atalhos; sessões curtas; dataset público cobre o básico |
-| Acurácia inflada por divisão errada | Regra 2 da seção 6, sem exceção |
-| Coleira gira no pescoço | Augmentation de rotação + canal de magnitude + caixa com peso embaixo |
-| Classes raras com poucos exemplos | Coleta contínua com o modo dump; class weights; aceitar F1 menor nelas no início |
-| Zephyr com curva íngreme | Plano B em Arduino só no logger; samples oficiais da Nordic como base |
-| BLE em segundo plano no iOS | Sync ao abrir o app; buffer de dias na flash |
-| Água/mordida | Fase 6; até lá, uso supervisionado |
-| Eventos curtos (chacoalhar) somem na suavização | Suavização por classe com detecção de evento (ADR 0002) |
-| Deriva de relógio desalinha IMU e vídeo | Batidinhas no início e no fim + correção linear (ADR 0003) |
-| Desconforto do cachorro | Adaptação gradual, peso mínimo, checar a pele, parar se houver incômodo |
+- [ ] Final case: IP67 sealing (O-ring), PETG/SLA + outer TPU layer against impact and bites
+- [ ] Magnetic pogo-pin charging (no exposed USB)
+- [ ] Weight < 3% of the dog's weight; center of mass under the neck
+- [ ] Custom KiCad PCB: nRF52840 module + IMU with MLC + charger + fuel gauge + antenna per the module reference. Prefer a module **already certified by Anatel**: it barely changes the cost and greatly simplifies product certification in Brazil
+- [ ] (Optional) audio fusion for `eating`/`drinking` (classes 5–6), turning the microphone on only when the IMU indicates head down + light movement
+- [ ] Final README: photos, demo video, accuracy and energy charts, decisions
+
+**Done when:** a sealed collar running day to day for 1 month without intervention.
 
 ---
 
-## 10. Status atual
+## 8. Bill of materials (prototype)
 
-- **Fase atual:** 1 (Fase 0 concluída em 2026-11-16)
-- **Próxima tarefa:** enquanto o hardware não chega: protocolo de coleta (`docs/protocols/coleta.md`); depois, firmware do logger
-- **Hardware:** XIAO nRF52840 Sense + Raspberry Pi Pico H encomendados (AliExpress, previsão 27/nov–04/dez/2026); bateria, jumpers e kit de solda a comprar no Brasil
+| Item | Phase | Note |
+|------|-------|------|
+| Seeed XIAO nRF52840 Sense | 1 | Main prototype (ordered) |
+| SWD probe (Raspberry Pi Pico H as debugprobe) | 1 | Debugging; required to flash MCUboot (Phase 3) (ordered) |
+| 3.7 V 150–300 mAh LiPo with PCM | 1 | Soldered to BAT+/BAT− (XIAO has no JST); check polarity with a multimeter |
+| PETG + TPU filament | 1/6 | Case |
+| Nordic Power Profiler Kit II (PPK2) | 3 | Essential to measure power |
+| Seeed XIAO ESP32-C3 (or similar ESP32) | 4 | Home base station (ADR 0007) |
+| LSM6DSOX or LSM6DSV16X breakout | 5 | Machine Learning Core |
+| MAX17048 breakout | 5 | Fuel gauge |
+| Magnetic pogo pins (2 or 4 pins) | 6 | Sealed charging |
+| O-ring | 6 | Size it in CAD |
+
+---
+
+## 9. Risks and mitigation
+
+| Risk | Mitigation |
+|------|------------|
+| Tiring labeling → project stalls | Own tool with shortcuts; short sessions; public dataset covers the basics |
+| Accuracy inflated by a wrong split | Rule 2 in section 6, no exceptions |
+| Collar rotates on the neck | Rotation augmentation + magnitude channel + case weighted at the bottom |
+| Rare classes with few examples | Continuous collection with dump mode; class weights; accept lower F1 at first |
+| Short events (shaking) vanish in smoothing | Per-class smoothing with event detection (ADR 0002) |
+| Clock drift misaligns IMU and video | Taps at start and end + linear correction (ADR 0003) |
+| Steep Zephyr learning curve | Arduino plan B for the logger only; official Nordic samples as a base |
+| BLE in the background on iOS | Home base station syncs on its own (ADR 0007); sync on app open; days of buffer in flash |
+| Water/bites | Phase 6; until then, supervised use |
+| Dog discomfort | Gradual adaptation, minimal weight, check the skin, stop if there is discomfort |
+
+---
+
+## 10. Current status
+
+- **Current phase:** 1 (Phase 0 completed 2026-11-16)
+- **Next task:** while the hardware ships: collection protocol (`docs/protocols/collection.md`); then the logger firmware
+- **Hardware:** XIAO nRF52840 Sense + Raspberry Pi Pico H ordered (AliExpress, ETA Nov 27 – Dec 4, 2026); battery, jumpers and soldering kit to buy locally
