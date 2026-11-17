@@ -1,19 +1,32 @@
 import 'package:material_ui/material_ui.dart';
 
 import 'collar/collar_link.dart';
+import 'collar/sync_service.dart';
 import 'ui/app_state.dart';
 import 'ui/home_screen.dart';
 import 'ui/login_screen.dart';
 
 void main() {
   final state = AppState(store: const SecureSessionStore())..restore();
-  runApp(CollarApp(state: state, link: UniversalBleCollarLink()));
+  runApp(
+    CollarApp(
+      state: state,
+      link: UniversalBleCollarLink(),
+      sync: UniversalBleSyncTransport(),
+    ),
+  );
 }
 
 class CollarApp extends StatelessWidget {
-  const CollarApp({super.key, required this.state, required this.link});
+  const CollarApp({
+    super.key,
+    required this.state,
+    required this.link,
+    required this.sync,
+  });
   final AppState state;
   final CollarLink link;
+  final SyncTransport sync;
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +51,9 @@ class CollarApp extends StatelessWidget {
                 body: Center(child: CircularProgressIndicator()),
               );
             }
-            return s.loggedIn ? HomeScreen(link: link) : const LoginScreen();
+            return s.loggedIn
+                ? HomeScreen(link: link, sync: sync)
+                : const LoginScreen();
           },
         ),
       ),

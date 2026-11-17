@@ -24,7 +24,7 @@ Screens follow the clickable prototype (`docs/product/app-prototype/`).
 
 ```bash
 flutter analyze
-flutter test        # 17 tests, no device needed
+flutter test        # 19 tests, no device needed
 ```
 
 ## Run on your iPhone (from the MacBook)
@@ -50,8 +50,9 @@ allowed for the local network (iOS `NSAllowsLocalNetworking`); a public server m
 
 ## Status
 
-- [x] `flutter analyze` clean, 17 tests passing (2026-11-17)
+- [x] `flutter analyze` clean, 19 tests passing (2026-11-17)
 - [ ] Collection mode tested with the real collar logger (needs the XIAO)
 - [ ] Installed on an iPhone and an Android phone
-- [ ] Phase 3: sync per-minute summaries over BLE and upload them (`api.ingest`), offline day view
+- [x] Phase 3 sync (contract 4.8): pair collar, "Sync now", upload via `api.ingest` (19 tests)
+- [ ] Offline day view from synced records; automatic sync when the app opens
 - [ ] Phase 4: push notifications, base-station Wi-Fi provisioning, consent screen (LGPD)

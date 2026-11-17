@@ -3,10 +3,13 @@
 library;
 
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:universal_ble/universal_ble.dart';
 
 import '../core/contracts.dart';
+import '../core/sync_protocol.dart';
+import 'sync_service.dart';
 
 class FoundCollar {
   const FoundCollar(this.id, this.name, this.rssi);
@@ -16,8 +19,8 @@ class FoundCollar {
 }
 
 abstract class CollarLink {
-  /// Collars advertising the raw data service (ADR 0010).
-  Stream<FoundCollar> scan();
+  /// Collars advertising `serviceUuid` (raw logger by default, ADR 0010; sync: ADR 0013).
+  Stream<FoundCollar> scan({String serviceUuid = rawServiceUuid});
   Future<void> stopScan();
 
   /// Connects, asks for a large MTU and subscribes to raw packets. Returns the MTU.
@@ -30,12 +33,12 @@ class UniversalBleCollarLink implements CollarLink {
   final _found = StreamController<FoundCollar>.broadcast();
 
   @override
-  Stream<FoundCollar> scan() {
+  Stream<FoundCollar> scan({String serviceUuid = rawServiceUuid}) {
     UniversalBle.onScanResult = (d) =>
         _found.add(FoundCollar(d.deviceId, d.name ?? loggerName, d.rssi));
     unawaited(
       UniversalBle.startScan(
-        scanFilter: ScanFilter(withServices: [rawServiceUuid]),
+        scanFilter: ScanFilter(withServices: [serviceUuid]),
       ),
     );
     return _found.stream;
@@ -69,6 +72,42 @@ class UniversalBleCollarLink implements CollarLink {
   @override
   Stream<List<int>> rawPackets(String collarId) =>
       UniversalBle.characteristicValueStream(collarId, rawCharUuid);
+
+  @override
+  Future<void> disconnect(String collarId) => UniversalBle.disconnect(collarId);
+}
+
+/// BLE transport for the summary sync service (contract 4.8) on top of universal_ble.
+class UniversalBleSyncTransport implements SyncTransport {
+  @override
+  Future<void> connect(String collarId) async {
+    await UniversalBle.connect(collarId, timeout: const Duration(seconds: 20));
+    await UniversalBle.discoverServices(collarId);
+    try {
+      await UniversalBle.requestMtu(
+        collarId,
+        247,
+      ); // 16 records per notification need 243
+    } catch (_) {
+      // iOS negotiates on its own; smaller MTUs just mean fewer records per notification
+    }
+  }
+
+  @override
+  Future<void> write(String collarId, String characteristic, Uint8List value) =>
+      UniversalBle.write(collarId, syncServiceUuid, characteristic, value);
+
+  @override
+  Stream<List<int>> notifications(String collarId, String characteristic) =>
+      UniversalBle.characteristicValueStream(collarId, characteristic);
+
+  @override
+  Future<void> subscribe(String collarId, String characteristic) =>
+      UniversalBle.subscribeNotifications(
+        collarId,
+        syncServiceUuid,
+        characteristic,
+      );
 
   @override
   Future<void> disconnect(String collarId) => UniversalBle.disconnect(collarId);

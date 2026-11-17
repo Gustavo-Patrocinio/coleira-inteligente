@@ -3,6 +3,10 @@ import 'dart:convert';
 
 import 'package:collar_app/api/api_client.dart';
 import 'package:collar_app/collar/collar_link.dart';
+import 'package:collar_app/collar/sync_service.dart';
+
+import 'dart:typed_data';
+
 import 'package:collar_app/main.dart';
 import 'package:collar_app/ui/app_state.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,13 +16,31 @@ import 'package:material_ui/material_ui.dart';
 
 class _NoBle implements CollarLink {
   @override
-  Stream<FoundCollar> scan() => const Stream.empty();
+  Stream<FoundCollar> scan({String serviceUuid = ''}) => const Stream.empty();
   @override
   Future<void> stopScan() async {}
   @override
   Future<int> connect(String collarId) async => 247;
   @override
   Stream<List<int>> rawPackets(String collarId) => const Stream.empty();
+  @override
+  Future<void> disconnect(String collarId) async {}
+}
+
+class _NoSync implements SyncTransport {
+  @override
+  Future<void> connect(String collarId) async {}
+  @override
+  Future<void> write(
+    String collarId,
+    String characteristic,
+    Uint8List value,
+  ) async {}
+  @override
+  Stream<List<int>> notifications(String collarId, String characteristic) =>
+      const Stream.empty();
+  @override
+  Future<void> subscribe(String collarId, String characteristic) async {}
   @override
   Future<void> disconnect(String collarId) async {}
 }
@@ -71,7 +93,9 @@ void main() {
       apiFactory: (u) => CollarApi(baseUrl: u, client: backend),
     );
     await state.restore();
-    await tester.pumpWidget(CollarApp(state: state, link: _NoBle()));
+    await tester.pumpWidget(
+      CollarApp(state: state, link: _NoBle(), sync: _NoSync()),
+    );
 
     expect(find.text('Sign in'), findsOneWidget);
     await tester.enterText(find.widgetWithText(TextField, 'Email'), 'a@b.com');

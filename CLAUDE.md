@@ -327,7 +327,7 @@ the author's dog **and at least 4 other dogs** of different sizes (ADR 0009).
 - [x] BLE sync service: the client asks "since minute X" and receives the batch (contract 4.8; PC client `ml/scripts/sync_ble.py` emulates the base station and uploads)
 - [ ] Raw dump mode, enabled from the app (to keep collecting dataset)
 - [x] Clock: the client sends the current time on connect; the collar keeps it (2 h RAM buffer stamped retroactively)
-- [ ] App side of the sync (Dart client for contract 4.8 + upload via `api.ingest`)
+- [x] App side of the sync: pair the collar (registers the device, keeps its token), "Sync now" fetches since X and uploads via `api.ingest` (tested with a fake collar; caught a status-before-data race)
 - [ ] App: daily routine screen (timeline per class + Exercise, Sleep and Skin indicators; see `docs/product/indicators.md`), sync on open
 - [ ] First power measurement with PPK2 → `docs/energy-budget.md`
 

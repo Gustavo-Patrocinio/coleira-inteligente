@@ -45,8 +45,16 @@ async def sync(scan_timeout: float, since_override: int | None) -> tuple[str, li
     records: list[bytes] = []
     done = asyncio.Event()
 
+    expected: list[int] = []  # filled by the "sync done" status
+
+    def maybe_done() -> None:
+        # Status can arrive before the last Data notification: wait for both (same as the app).
+        if expected and len(records) >= expected[0]:
+            done.set()
+
     def on_data(_c, data: bytearray) -> None:
         records.extend(sp.split_records(bytes(data)))
+        maybe_done()
 
     def on_status(_c, data: bytearray) -> None:
         st = sp.parse_status(bytes(data))
@@ -55,7 +63,8 @@ async def sync(scan_timeout: float, since_override: int | None) -> tuple[str, li
                 f"collar sent {st.count} records; "
                 f"stored {st.oldest_minute_ts}..{st.newest_minute_ts}"
             )
-            done.set()
+            expected.append(st.count)
+            maybe_done()
 
     async with BleakClient(dev) as client:
         print(f"connected to {dev.name} [{dev.address}], MTU {client.mtu_size}")

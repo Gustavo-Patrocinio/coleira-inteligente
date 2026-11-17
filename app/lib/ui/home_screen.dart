@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../collar/collar_link.dart';
+import '../collar/sync_service.dart';
 import 'alerts_screen.dart';
 import 'app_state.dart';
 import 'collar_screen.dart';
@@ -8,8 +9,9 @@ import 'today_screen.dart';
 import 'trends_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, required this.link});
+  const HomeScreen({super.key, required this.link, required this.sync});
   final CollarLink link;
+  final SyncTransport sync;
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
@@ -25,7 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
       const TodayScreen(),
       const TrendsScreen(),
       const AlertsScreen(),
-      CollarScreen(link: widget.link),
+      CollarScreen(link: widget.link, sync: widget.sync),
     ];
     return Scaffold(
       body: pages[_tab],
