@@ -12,6 +12,7 @@ ml/models/*.pth
 ml/models/*.onnx
 ml/models/*.h5
 ml/models/*.keras
+ml/models/*.npz
 ml/runs/
 ml/checkpoints/
 # C arrays exported for the firmware may be versioned (they are small);

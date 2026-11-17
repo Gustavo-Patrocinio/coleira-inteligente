@@ -298,7 +298,7 @@ the author's dog **and at least 4 other dogs** of different sizes (ADR 0009).
 - (tested with a synthetic session via `ml/scripts/make_synthetic_session.py`; still to validate with a real session)
 
 **Wrap-up:**
-- [ ] Run the Phase 0 model on our own data and record the drop (domain gap) in `docs/results.md`
+- [ ] Run the Phase 0 model on our own data and record the drop (domain gap) in `docs/results.md` (script ready: `ml/scripts/eval_domain_gap.py`; `own_data_report.py` checks the done criterion below; loader `coleira_ml.own_sessions` uses the labeler's timing)
 
 **Done when:** ≥ 2 h labeled from ≥ 5 dogs, ≥ 3 min accumulated for each class 0–4, packet loss < 1%.
 
@@ -309,11 +309,12 @@ the author's dog **and at least 4 other dogs** of different sizes (ADR 0009).
 
 - [ ] Fine-tuning: pre-train on public data + adapt on our own data (classes 0–4)
 - [ ] Evaluation split by dog (leave-one-dog-out) and by session/day
+  (both: `ml/scripts/finetune_lodo.py`, smoke-tested on public dogs posing as ours; waits for real sessions)
 - [x] Export int8 `.tflite` → C array (`ml/scripts/export_model.py` → `firmware/app/src/model/`, with generated config and op list)
 - [x] `firmware/app/`: integrate TFLite Micro (+ CMSIS-NN); 16 KB tensor arena (builds 0 warnings: 172 KB flash, 49 KB RAM)
 - [ ] Measure inference time and RAM used **on the board** (printed by the app)
 - [x] Smoothing per section 4.3: majority for states, event detection for 3–4; host-tested with synthetic sequences (`ml/tests/test_firmware_host.py`, C via zig cc)
-- [ ] Calibrate `p_event`/`n_min` on a validation session
+- [ ] Calibrate `p_event`/`n_min` on a validation session (`ml/scripts/calibrate_events.py`: replays the firmware smoothing, a Python port checked against `smoothing.c`, on out-of-fold LODO probabilities)
 - [x] Firmware preprocessing = training preprocessing (host test; same class on ≥ 99% of real windows)
 - [ ] Live test: class printed on serial vs video, on a new session
 
@@ -324,7 +325,7 @@ the author's dog **and at least 4 other dogs** of different sizes (ADR 0009).
 ### Phase 3: wireless autonomy
 **Goal:** a whole day recorded on battery alone.
 
-- [ ] MCUboot + BLE DFU (OTA) working **before** everything else (flash MCUboot via SWD, since the XIAO ships with Adafruit's UF2 bootloader)
+- [ ] MCUboot + BLE DFU (OTA) working **before** everything else (flash MCUboot via SWD, since the XIAO ships with Adafruit's UF2 bootloader). Built 2026-11-17 as the `firmware/app/ota/` variant (ADR 0015: update slot in the 2 MB QSPI flash, self-confirm after a health check, signed images); not run on a board yet
 - [x] Per-minute summary (section 4.7) written to flash: FCB on a 416 KB partition, ~13 days (ADR 0013; `firmware/app`, builds, not run on a board yet)
 - [x] BLE sync service: the client asks "since minute X" and receives the batch (contract 4.8; PC client `ml/scripts/sync_ble.py` emulates the base station and uploads)
 - [x] Raw dump mode, enabled from the app (to keep collecting dataset): the collar firmware serves the logger's raw service while subscribed; the app's collection mode finds either firmware (ADR 0014; builds, not run on a board yet)
@@ -394,7 +395,7 @@ dog coming home, without opening the app.
 - [ ] DIY enclosure: 3D-printable, sealed (O-ring), outer TPU layer against impact and bites, **universal clip** for collars of any width; STEP + STL published
 - [ ] Weight < 3% of the dog's weight for the smallest supported size; center of mass under the neck
 - [ ] Build guide with photos: parts list with links and prices, soldering, assembly, fit check (text version: `docs/build-guide.md`; photos after the first build)
-- [ ] Prebuilt firmware releases (collar + base station) and a flashing guide for non-developers
+- [ ] Prebuilt firmware releases (collar + base station) and a flashing guide for non-developers (collar done 2026-11-17: pushing a `v*` tag makes CI publish UF2 + OTA files with checksums; guide `docs/flashing.md`; base station pending)
 - [ ] App published (Android + iOS): onboarding that pairs the collar, creates the dog profile and provisions the base-station Wi-Fi, without help (onboarding written 2026-11-17: consent → dog → pair collar; Wi-Fi provisioning waits for the base station)
 - [ ] Model trained on 10–20+ dogs (Phase 1 + opt-in sessions from users), evaluated leave-one-dog-out
 - [ ] (Optional) audio fusion for `eating`/`drinking` (classes 5–6), turning the microphone on only when the IMU indicates head down + light movement

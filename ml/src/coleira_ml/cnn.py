@@ -120,8 +120,8 @@ def to_tflite_int8(model: keras.Model, representative: np.ndarray, n_rep: int = 
         return conv.convert()
 
 
-def predict_int8(tflite_model: bytes, X: np.ndarray) -> np.ndarray:
-    """Run the int8 model the way the chip would: quantize the input, infer, argmax."""
+def predict_int8_probs(tflite_model: bytes, X: np.ndarray) -> np.ndarray:
+    """Run the int8 model the way the chip would (quantized input) → dequantized probs."""
     it = tf.lite.Interpreter(model_content=tflite_model)
     inp, out = it.get_input_details()[0], it.get_output_details()[0]
     scale, zero = inp["quantization"]
@@ -130,7 +130,46 @@ def predict_int8(tflite_model: bytes, X: np.ndarray) -> np.ndarray:
     it.allocate_tensors()
     it.set_tensor(inp["index"], Xq)
     it.invoke()
-    return it.get_tensor(out["index"]).argmax(axis=1)
+    o_scale, o_zero = out["quantization"]
+    return (it.get_tensor(out["index"]).astype(np.float32) - o_zero) * np.float32(o_scale)
+
+
+def predict_int8(tflite_model: bytes, X: np.ndarray) -> np.ndarray:
+    """Run the int8 model the way the chip would: quantize the input, infer, argmax."""
+    return predict_int8_probs(tflite_model, X).argmax(axis=1)
+
+
+def fine_tune(
+    model: keras.Model,
+    X: np.ndarray,
+    y_idx: np.ndarray,
+    *,
+    epochs: int = 10,
+    lr: float = 5e-4,
+    batch_size: int = 128,
+    augment_fn: Callable[[np.ndarray, np.random.Generator], np.ndarray] | None = None,
+    seed: int = 0,
+) -> keras.Model:
+    """Continue training a (pre-trained) model on new data, at a lower learning rate.
+
+    Works on a copy, so one pre-trained model can be fine-tuned once per fold.
+    """
+    rng = np.random.default_rng(seed)
+    tuned = keras.models.clone_model(model)
+    tuned.set_weights(model.get_weights())
+    tuned.compile(
+        optimizer=keras.optimizers.Adam(lr),
+        loss="sparse_categorical_crossentropy",
+        metrics=["accuracy"],
+    )
+    cw = balanced_class_weight(y_idx)
+    for _ in range(epochs):
+        Xe = augment_fn(X, rng) if augment_fn else X
+        tuned.fit(
+            scale_inputs(Xe), y_idx, batch_size=batch_size, epochs=1,
+            class_weight=cw, shuffle=True, verbose=0,
+        )  # fmt: skip
+    return tuned
 
 
 def activation_ram_estimate(model: keras.Model) -> int:
