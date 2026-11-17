@@ -13,8 +13,10 @@ product, not a demo: every decision is measured, written down as an
 
 ![System architecture](docs/images/architecture.svg)
 
-> **Status:** Phase 0 (ML pipeline) ✅ complete · Phase 1 (own data collection) in
-> progress, hardware on the way. See the [plan](#roadmap).
+> **Status:** Phase 0 (ML pipeline) ✅ complete. Software for Phases 1–4 is written and
+> tested without hardware (firmware builds and is host-tested, backend runs on a real
+> TimescaleDB, the Flutter app has 19 tests); the board is on the way to validate it on a
+> real dog. See the [roadmap](#roadmap).
 
 ---
 
@@ -131,10 +133,10 @@ ml/              Python: dataset loader, windows, features, CNN, int8 export, te
   notebooks/     exploration (01_explore.ipynb)
   scripts/       download data, train baseline/CNN, generate a synthetic session
 tools/labeler/   web labeling tool (video + IMU), no build step
-firmware/        Zephyr / nRF Connect SDK (Phase 1+)
-basestation/     ESP32 home base station (Phase 4)
-app/             Flutter app (Phase 1+)
-backend/         Fastify + TimescaleDB (Phase 4)
+firmware/        Zephyr / NCS: logger (raw BLE stream) and app (TFLite Micro, summaries, sync)
+basestation/     ESP32 home base station (Phase 4, not started; ml/scripts/sync_ble.py emulates it)
+app/             Flutter app for iOS and Android (dashboard, collection mode, sync)
+backend/         Fastify + Postgres/TimescaleDB (ingestion, baseline, alerts)
 hardware/        enclosure CAD (Phase 6) and custom PCB (Phase 7)
 docs/            ADRs, results, dataset notes, product indicators
 ```
@@ -184,6 +186,10 @@ uses real signal, shows the behavior on screen, and simulates clock drift and pa
 | [0007](docs/decisions/0007-data-sync-architecture.md) | Home Wi-Fi base station + phone over BLE (Wi-Fi on the collar kept as an option) |
 | [0008](docs/decisions/0008-english-class-names.md) | English class names, stable IDs |
 | [0009](docs/decisions/0009-open-project-for-any-dog.md) | Open project for any dog first, product later |
+| [0010](docs/decisions/0010-logger-sampling-and-gatt.md) | Logger sampling clock (IMU 104 Hz read at 50 Hz) and GATT service |
+| [0011](docs/decisions/0011-daily-baseline-alerts.md) | Alerts on daily totals vs a same-day-type baseline |
+| [0012](docs/decisions/0012-ble-library-license.md) | universal_ble (BSD-3) instead of flutter_blue_plus (paid commercial license) |
+| [0013](docs/decisions/0013-summary-sync-protocol.md) | Per-minute storage in flash and the BLE sync protocol |
 
 ---
 
@@ -192,10 +198,10 @@ uses real signal, shows the behavior on screen, and simulates clock drift and pa
 | Phase | Goal | Done when | Status |
 |---|---|---|---|
 | 0 | ML pipeline on a public dataset | int8 CNN ≥ 85% balanced acc. on unseen dogs, < 64 KB | ✅ 0.957, 18.8 KB |
-| 1 | Collect and label data from real dogs | ≥ 2 h labeled from ≥ 5 dogs, ≥ 3 min per class, < 1% packet loss | 🚧 labeler done, hardware shipping |
-| 2 | Model running on the chip | F1 ≥ 0.85 (states), ≥ 0.70 (events) on unseen dogs, inference < 50 ms | |
-| 3 | Wireless, full day on battery, OTA | 24 h recorded, lossless sync, OTA tested | |
-| 4 | Backend, alerts, home base station | a real alert fires; no duplicates; data arrives on its own | |
+| 1 | Collect and label data from real dogs | ≥ 2 h labeled from ≥ 5 dogs, ≥ 3 min per class, < 1% packet loss | 🚧 labeler, logger firmware, PC recorder and phone collection mode ready; hardware shipping |
+| 2 | Model running on the chip | F1 ≥ 0.85 (states), ≥ 0.70 (events) on unseen dogs, inference < 50 ms | 🚧 firmware builds, host-tested against training; needs the board and our own data |
+| 3 | Wireless, full day on battery, OTA | 24 h recorded, lossless sync, OTA tested | 🚧 flash storage + BLE sync (firmware, app, PC base-station emulator); OTA and power measurements pending |
+| 4 | Backend, alerts, home base station | a real alert fires; no duplicates; data arrives on its own | 🚧 backend + alerts done (19 tests on a real TimescaleDB); ESP32 base station and push pending |
 | 5 | Two-level classification for battery life | ≥ 14 days measured in the field | |
 | 6 | Open release + beta | 10+ owners for a month, 3+ collars built by others from the docs | |
 | 7 | Product (later goal) | production design, certification, viable cost per unit | |

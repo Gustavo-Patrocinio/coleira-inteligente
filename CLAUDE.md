@@ -328,7 +328,7 @@ the author's dog **and at least 4 other dogs** of different sizes (ADR 0009).
 - [ ] Raw dump mode, enabled from the app (to keep collecting dataset)
 - [x] Clock: the client sends the current time on connect; the collar keeps it (2 h RAM buffer stamped retroactively)
 - [x] App side of the sync: pair the collar (registers the device, keeps its token), "Sync now" fetches since X and uploads via `api.ingest` (tested with a fake collar; caught a status-before-data race)
-- [ ] App: daily routine screen (timeline per class + Exercise, Sleep and Skin indicators; see `docs/product/indicators.md`), sync on open
+- [x] App: daily routine screen (timeline per class + Exercise, Sleep and Skin indicators; see `docs/product/indicators.md`); [ ] sync on open
 - [ ] First power measurement with PPK2 → `docs/energy-budget.md`
 
 **Done when:** 24 h in a row recorded wirelessly, sync with no loss or duplicates, OTA tested.
