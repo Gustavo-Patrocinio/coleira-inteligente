@@ -31,7 +31,8 @@ def host_test(tmp_path_factory) -> Path:
     cmd = [
         sys.executable, "-m", "ziglang", "cc", "-std=c99", "-O1", "-Wall", "-Werror",
         "-o", str(exe), str(APP / "tests" / "host_test.c"),
-        str(APP / "src" / "preprocess.c"), str(APP / "src" / "smoothing.c"), "-lm",
+        str(APP / "src" / "preprocess.c"), str(APP / "src" / "smoothing.c"),
+        str(APP / "src" / "summary_builder.c"), "-lm",
     ]  # fmt: skip
     res = subprocess.run(cmd, capture_output=True, text=True)
     assert res.returncode == 0, res.stderr
@@ -76,7 +77,7 @@ def _c_preprocess(exe: Path, raw: np.ndarray, tmp_path: Path) -> np.ndarray:
     return np.fromfile(fout, dtype=np.int8).reshape(len(raw), 7)
 
 
-@pytest.mark.parametrize("mode", ["smoothing", "ring"])
+@pytest.mark.parametrize("mode", ["smoothing", "ring", "summary"])
 def test_c_logic(host_test, mode):
     res = subprocess.run([str(host_test), mode], capture_output=True, text=True)
     assert res.returncode == 0, res.stderr

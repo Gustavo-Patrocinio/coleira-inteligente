@@ -1,0 +1,29 @@
+/*
+ * Flash layout for the app (ADR 0013): the default 32 KB storage holds about one day of
+ * per-minute summaries, so the code partition shrinks (the app is ~170 KB) and storage grows
+ * to 416 KB (~13–14 days). The Adafruit UF2 bootloader regions are untouched.
+ *
+ *   0x00000 – 0x26FFF  SoftDevice/MBR area (bootloader convention, unchanged)
+ *   0x27000 – 0x8BFFF  code   (404 KB)
+ *   0x8C000 – 0xF3FFF  storage (416 KB, FCB of summary records)
+ *   0xF4000 –          Adafruit UF2 bootloader (unchanged)
+ *
+ * Phase 3's MCUboot work replaces this layout and must keep ≥ 7 days of storage.
+ */
+
+/delete-node/ &code_partition;
+/delete-node/ &storage_partition;
+
+&flash0 {
+	partitions {
+		code_partition: partition@27000 {
+			label = "code_partition";
+			reg = <0x00027000 0x00065000>;
+		};
+
+		storage_partition: partition@8c000 {
+			label = "storage";
+			reg = <0x0008c000 0x00068000>;
+		};
+	};
+};

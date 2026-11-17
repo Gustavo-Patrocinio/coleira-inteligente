@@ -14,6 +14,7 @@
 #include "../src/model/model_config.h"
 #include "../src/preprocess.h"
 #include "../src/smoothing.h"
+#include "../src/summary_builder.h"
 
 static int failures;
 
@@ -118,6 +119,98 @@ static void test_ring(void)
 	CHECK(out[(PRE_WINDOW - 1) * PRE_RAW_CH] == 1360);
 }
 
+/* ------------------------------------------------------------------ summary builder */
+
+struct sink {
+	uint8_t rec[16][SB_RECORD_SIZE];
+	int n;
+};
+
+static void collect(const uint8_t record[SB_RECORD_SIZE], void *user)
+{
+	struct sink *k = user;
+
+	if (k->n < 16) {
+		memcpy(k->rec[k->n], record, SB_RECORD_SIZE);
+	}
+	k->n++;
+}
+
+static uint32_t rec_ts(const uint8_t *r)
+{
+	return (uint32_t)r[1] | (uint32_t)r[2] << 8 | (uint32_t)r[3] << 16 | (uint32_t)r[4] << 24;
+}
+
+static int rec_total(const uint8_t *r)
+{
+	int t = r[12];
+
+	for (int c = 0; c < 7; c++) {
+		t += r[5 + c];
+	}
+	return t;
+}
+
+#define T0 1800000000u /* a minute-aligned epoch (2027-01-15) */
+
+static void test_summary(void)
+{
+	static struct summary_builder sb;
+	struct sink k = {0};
+
+	/* clock known from the start, 30 s into a minute */
+	sb_init(&sb);
+	sb_set_battery(&sb, 77);
+	sb_set_clock(&sb, T0 + 30, 0);
+	for (uint32_t t = 0; t < 180; t++) {
+		sb_add(&sb, t, t < 90 ? 1 /* walking */ : 0 /* still */);
+	}
+	CHECK(sb_flush(&sb, 180, collect, &k) == 3); /* the 4th minute is not complete yet */
+	CHECK(k.n == 3);
+	CHECK(k.rec[0][0] == 1);                  /* version */
+	CHECK(rec_ts(k.rec[0]) == T0);            /* aligned to the epoch minute */
+	CHECK(rec_total(k.rec[0]) == 30);         /* partial first minute */
+	CHECK(k.rec[0][5 + 1] == 30);             /* walking */
+	CHECK(rec_ts(k.rec[1]) == T0 + 60 && k.rec[1][5 + 1] == 60);
+	CHECK(rec_ts(k.rec[2]) == T0 + 120 && k.rec[2][5 + 0] == 60);
+	CHECK(k.rec[0][13] == 77);                /* battery */
+	k.n = 0;
+	CHECK(sb_flush(&sb, 180, collect, &k) == 0); /* never twice */
+
+	/* clock arrives later: seconds kept in RAM are stamped retroactively */
+	sb_init(&sb);
+	for (uint32_t t = 1000; t < 1240; t++) {
+		sb_add(&sb, t, t % 60 < 6 ? 4 /* shaking */ : SB_UNKNOWN);
+	}
+	CHECK(sb_flush(&sb, 1240, collect, &k) == 0); /* no clock yet */
+	sb_set_clock(&sb, T0 + 240, 1240);            /* uptime 1000 = T0 */
+	k.n = 0;
+	CHECK(sb_flush(&sb, 1240, collect, &k) == 4);
+	CHECK(rec_ts(k.rec[0]) == T0 && rec_ts(k.rec[3]) == T0 + 180);
+	CHECK(k.rec[0][5 + 4] == 6 && k.rec[0][12] == 54); /* shaking 6 s, unknown 54 s */
+
+	/* a clock correction does not re-emit stored minutes */
+	sb_set_clock(&sb, T0 + 242, 1240);
+	for (uint32_t t = 1240; t < 1320; t++) {
+		sb_add(&sb, t, 0);
+	}
+	k.n = 0;
+	sb_flush(&sb, 1320, collect, &k);
+	CHECK(k.n >= 1);
+	CHECK(rec_ts(k.rec[0]) == T0 + 240);
+	CHECK(rec_total(k.rec[0]) <= 60);
+
+	/* gaps: skipped seconds are "no data"; a minute with nothing yields no record */
+	sb_init(&sb);
+	sb_set_clock(&sb, T0, 0);
+	sb_add(&sb, 0, 2);
+	sb_add(&sb, 150, 2); /* nothing between 1 and 149 */
+	k.n = 0;
+	CHECK(sb_flush(&sb, 180, collect, &k) == 2); /* minute 0 (1 s) and minute 2 (1 s) */
+	CHECK(rec_ts(k.rec[0]) == T0 && rec_total(k.rec[0]) == 1);
+	CHECK(rec_ts(k.rec[1]) == T0 + 120 && rec_total(k.rec[1]) == 1);
+}
+
 static int run_preprocess(const char *in_path, const char *out_path, int n)
 {
 	const struct preprocess_params p = {
@@ -153,6 +246,8 @@ int main(int argc, char **argv)
 		test_smoothing();
 	} else if (argc >= 2 && strcmp(argv[1], "ring") == 0) {
 		test_ring();
+	} else if (argc >= 2 && strcmp(argv[1], "summary") == 0) {
+		test_summary();
 	} else if (argc == 5 && strcmp(argv[1], "preprocess") == 0) {
 		return run_preprocess(argv[2], argv[3], atoi(argv[4]));
 	} else {

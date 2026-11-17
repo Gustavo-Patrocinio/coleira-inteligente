@@ -6,7 +6,8 @@
  *   inference thread: preprocess (int8) → CNN (TFLite Micro) → smoothing (ADR 0002)
  *                     → one line per second on the log, plus a per-minute summary
  *
- * Phase 3 replaces the log with the per-minute summary record (contract 4.7) in flash.
+ * Phase 3: each smoothed second also feeds the per-minute summary (contract 4.7), stored in
+ * flash and served over the BLE sync service (contract 4.8, ADR 0013).
  */
 #include <string.h>
 
@@ -14,11 +15,14 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/timing/timing.h>
 
+#include "ble_sync.h"
 #include "imu.h"
 #include "model/model_config.h"
 #include "model_runner.h"
 #include "preprocess.h"
 #include "smoothing.h"
+#include "summary_builder.h"
+#include "summary_store.h"
 
 LOG_MODULE_REGISTER(app, LOG_LEVEL_INF);
 
@@ -37,6 +41,28 @@ static int16_t pending[PRE_WINDOW * PRE_RAW_CH];
 static uint32_t pending_t_ms;
 K_SEM_DEFINE(window_ready, 0, 1);
 K_MUTEX_DEFINE(window_lock);
+
+/* Per-minute summary (Phase 3, ADR 0013): one smoothed label per second goes in, records
+ * aligned to epoch minutes go to flash. The BT thread sets the clock, so guard it. */
+static struct summary_builder summary;
+K_MUTEX_DEFINE(summary_lock);
+#define FLAG_BATTERY_NOT_MEASURED 0x01 /* until the fuel gauge (Phase 5) */
+
+static void store_record(const uint8_t record[SB_RECORD_SIZE], void *user)
+{
+	ARG_UNUSED(user);
+	if (store_append(record) != 0) {
+		LOG_WRN("could not store a summary record");
+	}
+}
+
+static void on_time(uint32_t epoch_s)
+{
+	k_mutex_lock(&summary_lock, K_FOREVER);
+	sb_set_clock(&summary, epoch_s, k_uptime_get_32() / 1000U);
+	k_mutex_unlock(&summary_lock);
+	ble_sync_set_state(0, true);
+}
 
 static const char *name_of(uint8_t id)
 {
@@ -143,6 +169,11 @@ static void inference_thread(void *a, void *b, void *c)
 		}
 		uint8_t out = smooth_step(&sc, &ss, probs);
 
+		k_mutex_lock(&summary_lock, K_FOREVER);
+		sb_add(&summary, t_ms / 1000U, out);
+		sb_flush(&summary, k_uptime_get_32() / 1000U, store_record, NULL);
+		k_mutex_unlock(&summary_lock);
+
 		seconds[out]++;
 		windows++;
 		LOG_INF("t=%u.%03us raw=%s(%d%%) out=%s  %u.%03u ms", t_ms / 1000, t_ms % 1000,
@@ -170,6 +201,18 @@ int main(void)
 
 	if (err) {
 		LOG_ERR("IMU init failed (%d)", err);
+		return err;
+	}
+	sb_init(&summary);
+	summary.flags = FLAG_BATTERY_NOT_MEASURED;
+	err = store_init();
+	if (err) {
+		LOG_ERR("summary storage failed (%d)", err);
+		return err;
+	}
+	err = ble_sync_init(on_time);
+	if (err) {
+		LOG_ERR("bluetooth failed (%d)", err);
 		return err;
 	}
 	err = model_init();

@@ -184,7 +184,15 @@ Little-endian, v1 (ADR 0001):
 | 14 | uint8 | `flags` |
 
 = 15 bytes/min, ~21 KB/day. Invariant: `sum(seconds_per_class) + unknown_s ≤ 60`. A new
-class or field → new `version`.
+class or field → new `version`. `flags` bit 0 = battery not measured; other bits 0 (ADR 0013).
+
+### 4.8 Summary sync GATT service (ADR 0013)
+
+Service `c01a0100-7e3b-4c5e-9d2a-5f1e8b6a2c10`; characteristics `…0101` Time (write
+`uint32 epoch_s`), `…0102` Control (write `0x01 + uint32 since_minute_ts`, or `0x02` status),
+`…0103` Data (notify, k × 15-byte records), `…0104` Status (read/notify, 16 bytes: kind,
+clock_set, battery_pct, reserved, uint32 count, uint32 oldest, uint32 newest). Sequence:
+write Time → subscribe → Control `0x01, X` → records → Status `0x81`.
 
 ---
 
@@ -315,10 +323,11 @@ the author's dog **and at least 4 other dogs** of different sizes (ADR 0009).
 **Goal:** a whole day recorded on battery alone.
 
 - [ ] MCUboot + BLE DFU (OTA) working **before** everything else (flash MCUboot via SWD, since the XIAO ships with Adafruit's UF2 bootloader)
-- [ ] Per-minute summary (section 4.7) written to flash (ring buffer, e.g. ZMS/NVS or a dedicated partition)
-- [ ] BLE sync service: the client asks "since minute X" and receives the batch (same protocol for the app and the base station, ADR 0007)
+- [x] Per-minute summary (section 4.7) written to flash: FCB on a 416 KB partition, ~13 days (ADR 0013; `firmware/app`, builds, not run on a board yet)
+- [x] BLE sync service: the client asks "since minute X" and receives the batch (contract 4.8; PC client `ml/scripts/sync_ble.py` emulates the base station and uploads)
 - [ ] Raw dump mode, enabled from the app (to keep collecting dataset)
-- [ ] Clock: the client sends the current time on connect; the collar keeps it
+- [x] Clock: the client sends the current time on connect; the collar keeps it (2 h RAM buffer stamped retroactively)
+- [ ] App side of the sync (Dart client for contract 4.8 + upload via `api.ingest`)
 - [ ] App: daily routine screen (timeline per class + Exercise, Sleep and Skin indicators; see `docs/product/indicators.md`), sync on open
 - [ ] First power measurement with PPK2 → `docs/energy-budget.md`
 
