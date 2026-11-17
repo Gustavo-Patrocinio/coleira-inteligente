@@ -5,6 +5,7 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
   workflow_dispatch:
 
@@ -112,24 +113,68 @@ jobs:
         run: |
           [ -d .west ] || west init -l coleira-inteligente --mf firmware/west.yml
           west update --narrow -o=--depth=1
-      - name: Build logger and app (debug and release)
+      - name: Signing key for OTA images (repository secret, if set)
+        env:
+          KEY: ${{ secrets.MCUBOOT_SIGNING_KEY }}
+        run: |
+          if [ -n "$KEY" ]; then
+            echo "$KEY" >"$RUNNER_TEMP/collar-ec-p256.pem"
+            echo "SIGN=-DSB_CONFIG_BOOT_SIGNATURE_KEY_FILE=\"$RUNNER_TEMP/collar-ec-p256.pem\"" >> "$GITHUB_ENV"
+            echo "KEYTAG=" >> "$GITHUB_ENV"
+          else
+            echo "SIGN=" >> "$GITHUB_ENV"
+            echo "KEYTAG=-devkey" >> "$GITHUB_ENV"
+          fi
+      - name: Build logger and app (UF2 debug/release, OTA debug/release)
         run: |
           set -o pipefail
-          B="west build -p always -b xiao_ble/nrf52840/sense"
-          for target in "logger" "app" "app release"; do
-            set -- $target
-            dir=coleira-inteligente/firmware/$1
-            extra=""
-            [ "${2:-}" = release ] && extra="-DEXTRA_CONF_FILE=release.conf"
-            $B -d build/$1${2:+-$2} $dir -- $extra 2>&1 | tee build-$1${2:+-$2}.log
-            # compiler warnings only (the release Kconfig prints a harmless board-defconfig note)
-            if grep -nE "\.(c|cc|cpp|h):[0-9]+:[0-9]+: warning:" build-$1${2:+-$2}.log; then
-              echo "::error::compiler warnings in $target"; exit 1
+          FW=coleira-inteligente/firmware
+          OTA="-DSB_CONF_FILE=ota/sysbuild.conf -DEXTRA_DTC_OVERLAY_FILE=ota/ota.overlay -DPM_STATIC_YML_FILE=ota/pm_static.yml $SIGN"
+          build() {  # name, source dir, extra cmake args
+            west build -p always -b xiao_ble/nrf52840/sense -d build/$1 $FW/$2 -- $3 2>&1 | tee build-$1.log
+            # compiler warnings only (board defconfigs print harmless Kconfig notes)
+            if grep -nE "\.(c|cc|cpp|h):[0-9]+:[0-9]+: warning:" build-$1.log; then
+              echo "::error::compiler warnings in $1"; exit 1
             fi
-            grep -E "FLASH:|RAM:" build-$1${2:+-$2}.log
-          done
+            grep -E "FLASH:|RAM:" build-$1.log
+          }
+          build logger logger ""
+          build app app ""
+          build app-release app "-DEXTRA_CONF_FILE=release.conf"
+          build ota app "$OTA -DEXTRA_CONF_FILE=ota/ota.conf"
+          build ota-release app "$OTA -DEXTRA_CONF_FILE=ota/ota.conf;release.conf"
+      - name: Collect the files people flash
+        run: |
+          mkdir dist
+          cp build/logger/logger/zephyr/zephyr.uf2 dist/collar-logger.uf2
+          cp build/app-release/app/zephyr/zephyr.uf2 dist/collar.uf2
+          cp build/app/app/zephyr/zephyr.uf2 dist/collar-debug-log.uf2
+          cp build/ota-release/merged.hex dist/collar-ota-first-flash$KEYTAG.hex
+          cp build/ota-release/dfu_application.zip dist/collar-ota-update$KEYTAG.zip
+          cp build/ota/merged.hex dist/collar-ota-debug-log-first-flash$KEYTAG.hex
+          cp build/ota/dfu_application.zip dist/collar-ota-debug-log-update$KEYTAG.zip
+          (cd dist && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt)
       - uses: actions/upload-artifact@v4
         with:
-          name: firmware-uf2
-          path: build/*/*/zephyr/zephyr.uf2
-          if-no-files-found: warn
+          name: firmware
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    name: GitHub release (tags v*)
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [ml, backend, app, labeler, firmware]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: firmware
+          path: dist
+      - name: Create the release with the firmware files
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --notes-file docs/flashing.md --prerelease

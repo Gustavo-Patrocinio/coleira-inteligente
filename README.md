@@ -193,6 +193,7 @@ uses real signal, shows the behavior on screen, and simulates clock drift and pa
 | [0012](docs/decisions/0012-ble-library-license.md) | universal_ble (BSD-3) instead of flutter_blue_plus (paid commercial license) |
 | [0013](docs/decisions/0013-summary-sync-protocol.md) | Per-minute storage in flash and the BLE sync protocol |
 | [0014](docs/decisions/0014-raw-dump-mode.md) | Raw dump mode in the collar firmware (collect data without reflashing) |
+| [0015](docs/decisions/0015-mcuboot-ota.md) | MCUboot with the update slot in external flash; OTA as a build variant |
 
 ---
 
@@ -203,7 +204,7 @@ uses real signal, shows the behavior on screen, and simulates clock drift and pa
 | 0 | ML pipeline on a public dataset | int8 CNN ≥ 85% balanced acc. on unseen dogs, < 64 KB | ✅ 0.957, 18.8 KB |
 | 1 | Collect and label data from real dogs | ≥ 2 h labeled from ≥ 5 dogs, ≥ 3 min per class, < 1% packet loss | 🚧 labeler, logger firmware, PC recorder and phone collection mode ready; hardware shipping |
 | 2 | Model running on the chip | F1 ≥ 0.85 (states), ≥ 0.70 (events) on unseen dogs, inference < 50 ms | 🚧 firmware builds, host-tested against training; needs the board and our own data |
-| 3 | Wireless, full day on battery, OTA | 24 h recorded, lossless sync, OTA tested | 🚧 flash storage + BLE sync (firmware, app, PC base-station emulator); OTA and power measurements pending |
+| 3 | Wireless, full day on battery, OTA | 24 h recorded, lossless sync, OTA tested | 🚧 flash storage + BLE sync (firmware, app, PC base-station emulator); OTA variant (MCUboot + BLE DFU) builds; OTA on the board and power measurements pending |
 | 4 | Backend, alerts, home base station | a real alert fires; no duplicates; data arrives on its own | 🚧 backend + alerts done (19 tests on a real TimescaleDB); ESP32 base station and push pending |
 | 5 | Two-level classification for battery life | ≥ 14 days measured in the field | |
 | 6 | Open release + beta | 10+ owners for a month, 3+ collars built by others from the docs | |
@@ -222,7 +223,8 @@ gauge and an ESP32 base station.
 
 **Build your own:** [step-by-step build guide](docs/build-guide.md) (battery safety, soldering,
 assembly, pairing, fitting on the dog) and a [3D-printable case](hardware/cad/README.md)
-(parametric, STEP + STL, for 16/20/25 mm collars, ~20 g in total).
+(parametric, STEP + STL, for 16/20/25 mm collars, ~20 g in total). Ready-made firmware files
+come with each GitHub release, flashed by drag-and-drop ([flashing guide](docs/flashing.md)).
 
 ![enclosure v1](docs/images/enclosure_v1.png)
 
