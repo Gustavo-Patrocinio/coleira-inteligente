@@ -58,3 +58,10 @@ hardware/pcb/**/*.lck
 Thumbs.db
 .vscode/
 .idea/
+
+# server secrets (Firebase service account)
+backend/deploy/secrets/
+
+# Firebase config of each operator (app/README.md, Push notifications)
+app/android/app/google-services.json
+app/ios/Runner/GoogleService-Info.plist

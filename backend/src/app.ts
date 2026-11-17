@@ -364,6 +364,28 @@ export async function buildApp({
     return r.rows[0];
   });
 
+  const pushBody = z.object({
+    token: z.string().min(20).max(4096),
+    platform: z.enum(["android", "ios"]),
+  });
+  app.put("/v1/me/push-token", { preHandler: requireUser, schema: { body: pushBody } }, async (req, reply) => {
+    await pool.query(
+      `INSERT INTO push_tokens (token, user_id, platform) VALUES ($1, $2, $3)
+       ON CONFLICT (token) DO UPDATE SET user_id = EXCLUDED.user_id, platform = EXCLUDED.platform, updated_at = now()`,
+      [req.body.token, userId(req), req.body.platform],
+    );
+    return reply.code(204).send();
+  });
+  // on sign-out, so the phone stops getting this account's alerts
+  app.delete(
+    "/v1/me/push-token",
+    { preHandler: requireUser, schema: { body: pushBody.pick({ token: true }) } },
+    async (req, reply) => {
+      await pool.query("DELETE FROM push_tokens WHERE token = $1 AND user_id = $2", [req.body.token, userId(req)]);
+      return reply.code(204).send();
+    },
+  );
+
   app.get("/v1/me/export", { preHandler: requireUser }, async (req) => {
     const uid = userId(req);
     const q = (sql: string) => pool.query(sql, [uid]).then((r) => r.rows);
@@ -373,6 +395,7 @@ export async function buildApp({
       devices: await q("SELECT d.id, d.dog_id, d.serial, d.created_at FROM devices d JOIN dogs g ON g.id = d.dog_id WHERE g.user_id = $1"),
       daily_metrics: await q("SELECT m.* FROM daily_metrics m JOIN dogs g ON g.id = m.dog_id WHERE g.user_id = $1"),
       alerts: await q("SELECT a.* FROM alerts a JOIN dogs g ON g.id = a.dog_id WHERE g.user_id = $1"),
+      push_tokens: await q("SELECT platform, updated_at FROM push_tokens WHERE user_id = $1"),
       activity_minute: await q(
         `SELECT a.* FROM activity_minute a JOIN devices d ON d.id = a.device_id JOIN dogs g ON g.id = d.dog_id
           WHERE g.user_id = $1 ORDER BY a.device_id, a.minute_ts`,

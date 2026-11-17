@@ -27,7 +27,7 @@ Screens follow the clickable prototype (`docs/product/app-prototype/`).
 
 ```bash
 flutter analyze
-flutter test        # 22 tests, no device needed
+flutter test        # 34 tests, no device needed
 ```
 
 ## Run on your iPhone (from the MacBook)
@@ -51,9 +51,28 @@ Run the backend on your computer (`backend/README.md`) and, on the phone's login
 the computer's LAN address, e.g. `http://192.168.0.10:3000` (same Wi-Fi). Plain HTTP is only
 allowed for the local network (iOS `NSAllowsLocalNetworking`); a public server must use HTTPS.
 
+## Push notifications (optional)
+
+The app works without them: alerts show in the Alerts tab. Built without Firebase files, it
+quietly skips push (`NoPush`). To turn them on for your server:
+
+1. In the Firebase project of your server (`backend/DEPLOY.md`, *Push notifications*), add an
+   Android app and an iOS app with this app's package/bundle id.
+2. Download `google-services.json` → `android/app/`, and `GoogleService-Info.plist` →
+   `ios/Runner/` (add it to the Runner target in Xcode). Both are ignored by git: they belong
+   to your Firebase project.
+3. Android: add the Google services Gradle plugin as the Firebase console shows.
+4. iOS needs a **paid** Apple developer account: Xcode → *Signing & Capabilities* → add *Push
+   Notifications* and *Background Modes → Remote notifications*; upload an APNs key in the
+   Firebase console (Project settings → Cloud Messaging). With a free account, leave this out
+   (the capability breaks free signing) and use the Alerts tab.
+
+The app asks for notification permission right after the consent screen and sends the token
+to the server (`PUT /v1/me/push-token`); signing out removes it.
+
 ## Status
 
-- [x] `flutter analyze` clean, 22 tests passing (2026-11-17)
+- [x] `flutter analyze` clean, 34 tests passing (2026-11-17)
 - [ ] Collection mode tested with the real collar logger (needs the XIAO)
 - [ ] Installed on an iPhone and an Android phone
 - [x] Phase 3 sync (contract 4.8): pair collar, "Sync now", upload via `api.ingest` (22 tests)
@@ -61,4 +80,8 @@ allowed for the local network (iOS `NSAllowsLocalNetworking`); a public server m
       records kept on the phone so Today works offline and failed uploads are retried
 - [x] First-run onboarding: privacy notice + consent (LGPD, recorded on the server) → dog → pair
       collar; "Your data": download everything / delete the account
-- [ ] Phase 4: push notifications, base-station Wi-Fi provisioning
+- [x] Sleep on Today: bedtime–wake time, rest, awakenings, naps (estimated from movement)
+- [x] Push notifications for new alerts (FCM, token sent after consent, removed on sign-out);
+      [ ] tested on a real phone with a Firebase project
+- [x] Firmware update from the newest GitHub release (BLE, MCUboot SMP)
+- [ ] Base-station Wi-Fi provisioning

@@ -38,6 +38,8 @@ Self-hosting on the internet with HTTPS (Caddy + Let's Encrypt), nightly backups
 | POST | `/v1/alerts/:id/feedback` | user | `{feedback: useful \| false_alarm}` |
 | GET | `/v1/me` | user | account: email, accepted privacy notice version, research opt-in |
 | PUT | `/v1/me/consent` | user | `{version, research_opt_in}`: records consent (LGPD) with a timestamp |
+| PUT | `/v1/me/push-token` | user | `{token, platform: android\|ios}`: this phone gets push notifications for new alerts (FCM; `DEPLOY.md`) |
+| DELETE | `/v1/me/push-token` | user | `{token}`: stop notifying this phone (sign-out) |
 | GET | `/v1/me/export` | user | all of the user's data as JSON (LGPD) |
 | DELETE | `/v1/me` | user | deletes the account and everything under it (LGPD) |
 
@@ -56,10 +58,12 @@ dev_...`. A dog that is not yours is a 404, never a 403, so IDs reveal nothing.
 - **Alerts** (ADR 0011, `src/metrics.ts`): daily totals vs median + MAD of the previous 28
   days of the same day type; robust |z| > 3; needs 14 complete days of history and a complete
   day. Runs inside the server every `ALERTS_EVERY_MIN` minutes or with `npm run job:alerts`.
+  New alerts become push notifications when FCM is configured (`src/push.ts`, `DEPLOY.md`):
+  sent once per alert (`alerts.notified_at`), lock-screen text without numbers, tokens FCM
+  reports as gone are deleted.
 - **Storage:** `activity_minute` is a TimescaleDB hypertable (7-day chunks) with an hourly
   continuous aggregate (`activity_hourly`). Migrations are plain SQL in `migrations/`.
 
 ## Not done yet
 
-- Push notifications (Firebase Cloud Messaging) when an alert is created.
 - Hourly "normal band" endpoint for the app's timeline (data is already aggregated).

@@ -12,11 +12,13 @@ import {
   type DayMetrics,
   type MinuteRow,
 } from "./metrics.js";
+import { notifyNewAlerts, type PushSender } from "./push.js";
 
 export interface JobResult {
   dogs: number;
   days: number;
   alerts: number;
+  pushed: number;
 }
 
 /** `evaluateLastDays`: how many recent complete local days to (re)evaluate per dog. */
@@ -24,6 +26,7 @@ export async function runAlertsJob(
   pool: pg.Pool,
   now: Date = new Date(),
   evaluateLastDays = 3,
+  push?: PushSender,
 ): Promise<JobResult> {
   const dogs = (await pool.query<{ id: string; timezone: string }>("SELECT id, timezone FROM dogs")).rows;
   let days = 0;
@@ -68,7 +71,13 @@ export async function runAlertsJob(
       }
     }
   }
-  return { dogs: dogs.length, days, alerts };
+  let pushed = 0;
+  if (push) {
+    // the oldest day any dog could have been evaluated on in this run
+    const since = addDays(now.toISOString().slice(0, 10), -(evaluateLastDays + 2));
+    pushed = (await notifyNewAlerts(pool, push, since)).sent;
+  }
+  return { dogs: dogs.length, days, alerts, pushed };
 }
 
 async function upsertDaily(pool: pg.Pool, dogId: string, m: DayMetrics): Promise<void> {

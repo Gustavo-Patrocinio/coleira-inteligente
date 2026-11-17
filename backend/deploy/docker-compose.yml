@@ -27,6 +27,11 @@ services:
       PORT: 3000
       ALERTS_EVERY_MIN: ${ALERTS_EVERY_MIN:-60}
       TRUST_PROXY: "true" # behind Caddy: rate limits per real client IP
+      # push notifications: put the Firebase service account in ./secrets/fcm.json and set
+      # FCM_SERVICE_ACCOUNT_FILE=/secrets/fcm.json in .env (DEPLOY.md, Push notifications)
+      FCM_SERVICE_ACCOUNT_FILE: ${FCM_SERVICE_ACCOUNT_FILE:-}
+    volumes:
+      - ./secrets:/secrets:ro
     depends_on:
       db:
         condition: service_healthy

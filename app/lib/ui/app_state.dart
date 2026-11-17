@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../api/api_client.dart';
+import '../core/push.dart';
 import '../collar/summary_cache.dart';
 import '../collar/sync_service.dart';
 
@@ -37,6 +40,7 @@ class AppState extends ChangeNotifier {
     CollarApi Function(Uri)? apiFactory,
     SummaryCache? cache,
     DateTime Function()? clock,
+    this.push = const NoPush(),
   }) : _apiFactory = apiFactory ?? ((u) => CollarApi(baseUrl: u)),
        cache = cache ?? FileSummaryCache(),
        _clock = clock ?? DateTime.now;
@@ -46,6 +50,9 @@ class AppState extends ChangeNotifier {
   final CollarApi Function(Uri) _apiFactory;
   final SummaryCache cache;
   final DateTime Function() _clock;
+  final PushService push;
+  String? _pushToken;
+  StreamSubscription<PushToken>? _pushRefresh;
 
   /// Version of the privacy notice in the app (ConsentScreen). Bump it when the notice
   /// changes in a way users must agree to again.
@@ -78,6 +85,7 @@ class AppState extends ChangeNotifier {
       try {
         await _pickDog();
         me = await api!.me();
+        unawaited(_registerPush());
       } catch (_) {
         api!.token = null; // expired token or server unreachable → log in again
       }
@@ -102,6 +110,7 @@ class AppState extends ChangeNotifier {
     await store.write('token', a.token);
     await _pickDog();
     me = await a.me();
+    unawaited(_registerPush());
     notifyListeners();
   }
 
@@ -114,6 +123,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> acceptConsent({required bool researchOptIn}) async {
     me = await api!.putConsent(consentVersion, researchOptIn: researchOptIn);
+    unawaited(_registerPush());
     notifyListeners();
   }
 
@@ -140,7 +150,36 @@ class AppState extends ChangeNotifier {
     await signOut();
   }
 
+  /// Asks for notification permission only after consent (the first screen explains
+  /// alerts); best effort: without push, alerts still show in the app.
+  Future<void> _registerPush() async {
+    if (needsConsent || api == null) return;
+    try {
+      final t = await push.register();
+      if (t == null) return;
+      await api!.putPushToken(t.token, t.platform);
+      _pushToken = t.token;
+      _pushRefresh ??= push.tokenRefresh.listen((n) async {
+        try {
+          await api?.putPushToken(n.token, n.platform);
+          _pushToken = n.token;
+        } catch (_) {}
+      });
+    } catch (_) {}
+  }
+
   Future<void> signOut() async {
+    // this phone stops getting the account's alerts (best effort: the server also drops
+    // tokens FCM reports as gone)
+    final t = _pushToken;
+    if (t != null && loggedIn) {
+      try {
+        await api!.deletePushToken(t);
+      } catch (_) {}
+    }
+    _pushToken = null;
+    await _pushRefresh?.cancel();
+    _pushRefresh = null;
     api?.token = null;
     dog = null;
     me = null;

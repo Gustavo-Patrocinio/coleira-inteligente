@@ -8,6 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildApp } from "../src/app.js";
 import { createPool, migrate } from "../src/db.js";
 import { runAlertsJob } from "../src/jobs.js";
+import type { PushMessage, PushResult, PushSender } from "../src/push.js";
 import { encodeRecords, type MinuteRecord } from "../src/summary.js";
 
 const ADMIN_URL = process.env.TEST_ADMIN_URL ?? "postgres://collar:collar@localhost:54329/collar";
@@ -170,11 +171,28 @@ describe.runIf(() => available)("API with a real database", () => {
       );
       expect((await ingest(device, recs)).json().inserted).toBe(1440);
     }
+    // two phones on the account; one was uninstalled (FCM says the token is gone)
+    for (const [token, platform] of [["phone-ios-token-000000001", "ios"], ["phone-gone-token-00000002", "android"]]) {
+      const r = await app.inject({ method: "PUT", url: "/v1/me/push-token", headers: owner, payload: { token, platform } });
+      expect(r.statusCode).toBe(204);
+    }
+    const sent: [string, PushMessage][] = [];
+    const push: PushSender = {
+      send: async (token, msg): Promise<PushResult> => {
+        sent.push([token, msg]);
+        return token.includes("gone") ? "unregistered" : "ok";
+      },
+    };
     const now = new Date("2026-09-23T15:00:00Z"); // noon on Sep 23 in São Paulo
-    const run1 = await runAlertsJob(pool, now);
-    expect(run1.alerts).toBe(1);
-    const run2 = await runAlertsJob(pool, now); // idempotent
-    expect(run2.alerts).toBe(0);
+    const run1 = await runAlertsJob(pool, now, 3, push);
+    expect(run1).toMatchObject({ alerts: 1, pushed: 1 });
+    expect(sent.map(([t]) => t).sort()).toEqual(["phone-gone-token-00000002", "phone-ios-token-000000001"]);
+    expect(sent[0]![1].title).toBe("Thor scratched more than usual");
+    const run2 = await runAlertsJob(pool, now, 3, push); // idempotent: no new alert, no second push
+    expect(run2).toMatchObject({ alerts: 0, pushed: 0 });
+    expect(sent).toHaveLength(2);
+    const left = await pool.query("SELECT token FROM push_tokens WHERE token LIKE 'phone-%'");
+    expect(left.rows).toEqual([{ token: "phone-ios-token-000000001" }]); // dead token deleted
 
     const alerts = (await app.inject({ method: "GET", url: `/v1/dogs/${dogId}/alerts`, headers: owner })).json();
     expect(alerts).toHaveLength(1);

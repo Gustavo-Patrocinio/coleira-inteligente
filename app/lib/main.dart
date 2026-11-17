@@ -2,12 +2,17 @@ import 'package:material_ui/material_ui.dart';
 
 import 'collar/collar_link.dart';
 import 'collar/sync_service.dart';
+import 'core/push_firebase.dart';
 import 'ui/app_state.dart';
 import 'ui/home_screen.dart';
 import 'ui/login_screen.dart';
 
-void main() {
-  final state = AppState(store: const SecureSessionStore())..restore();
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final state = AppState(
+    store: const SecureSessionStore(),
+    push: await FirebasePush.create(),
+  )..restore();
   runApp(
     CollarApp(
       state: state,

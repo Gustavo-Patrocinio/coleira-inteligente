@@ -81,7 +81,25 @@ Then point `DATABASE_URL` at `restored` (or rename the databases) and restart `a
 `pg_dump` prints warnings about circular foreign keys on TimescaleDB's catalog tables; they
 are expected and the restore above handles them.
 
-## 6. Security checklist
+## 6. Push notifications (optional)
+
+Without this, alerts still show in the app; with it, the owner's phone also gets a
+notification when an alert is created. The server talks to Firebase Cloud Messaging (FCM)
+directly; nothing is sent to Firebase except the phone's token and the lock-screen text
+("Thor scratched more than usual", no numbers).
+
+1. In the [Firebase console](https://console.firebase.google.com), create a project (free).
+2. Project settings → Service accounts → **Generate new private key**: a JSON file.
+3. On the server, in `backend/deploy/`: `mkdir -p secrets`, copy the file to
+   `secrets/fcm.json`, `chmod 600 secrets/fcm.json`, and add to `.env`:
+   `FCM_SERVICE_ACCOUNT_FILE=/secrets/fcm.json`.
+4. `docker compose up -d`. The log says `push notifications on (FCM)`.
+
+The app must be built against the same Firebase project (`app/README.md`, *Push
+notifications*). Treat the JSON like a password: anyone holding it can send notifications to
+your users. It is not in git (`secrets/` is ignored).
+
+## 7. Security checklist
 
 - [ ] `.env` has long random `POSTGRES_PASSWORD` and `JWT_SECRET` (never commit it; changing
       `JWT_SECRET` logs everyone out)
