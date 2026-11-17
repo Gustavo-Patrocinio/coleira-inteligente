@@ -114,6 +114,10 @@ python C:/ncs/v2.9.0/bootloader/mcuboot/scripts/imgtool.py keygen -k C:/keys/col
 # then add to the build:  -DSB_CONFIG_BOOT_SIGNATURE_KEY_FILE=\"C:/keys/collar-ec-p256.pem\"
 ```
 
+The project's key was made this way on 2026-11-17 (in `C:/keys/`, checked: an image signed
+with it validates and the development key no longer does). For CI, its content goes in the
+repository secret `MCUBOOT_SIGNING_KEY` (`docs/flashing.md`).
+
 Every later update must be signed with the same key, or MCUboot refuses it. Lose the key and
 the collar needs the SWD probe again.
 

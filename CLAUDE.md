@@ -346,13 +346,13 @@ arrives on its own.
 - [x] Tables: `users`, `dogs`, `devices`, `activity_minute` (hypertable), `alerts`, plus `daily_metrics`
 - [x] Continuous aggregate per hour (`activity_hourly`); daily metrics computed in local time by the job
 - [x] Fastify + Zod API: auth (JWT), dogs/devices, **idempotent** batch `POST /v1/ingest` (key `device_id + minute_ts`), recording which path delivered each batch (base station or app)
-- [x] Query endpoints: daily routine (15-min blocks), trends; sleep estimated from movement (`GET /v1/dogs/:id/sleep/:day`: bedtime, wake time, rest, awakenings, longest stretch, naps; `src/sleep.ts`); [ ] show it in the app
+- [x] Query endpoints: daily routine (15-min blocks), trends; sleep estimated from movement (`GET /v1/dogs/:id/sleep/:day`: bedtime, wake time, rest, awakenings, longest stretch, naps; `src/sleep.ts`); shown on the app's Today card
 - [x] Baseline job: daily totals vs **median + MAD** of the previous 28 days, same day type (ADR 0011, replaces the per-hour baseline for alerts)
 - [x] Alerts by robust z-score (|z| > 3) for total activity, scratching time and night wake-ups; ≥ 14 complete days of history; incomplete days skipped
 - [x] "Made sense / false alarm" feedback on each alert
-- [ ] Push via Firebase Cloud Messaging
+- [ ] Push via Firebase Cloud Messaging (code done 2026-11-17: `backend/src/push.ts` sends one notification per new alert over the FCM HTTP v1 API when `FCM_SERVICE_ACCOUNT_FILE` is set; the app registers its token after consent and removes it on sign-out; waits for a Firebase project and a real phone; iOS needs a paid Apple account)
 - [x] Tests: duplicate ingestion, sync gaps, time zones (19 tests, integration against a real TimescaleDB)
-- [x] App: trends and alerts screens (with feedback), backed by the API; [ ] push notifications
+- [x] App: trends and alerts screens (with feedback), backed by the API; push notifications (code done, see above)
 - [ ] **Base station (`basestation/`, ADR 0007):** ESP32 (e.g. XIAO ESP32-C3) as BLE central that pulls new summaries from the collar and uploads them over Wi-Fi to `/ingest`; Wi-Fi provisioning from the app over BLE; per-device credential; collar prefers the base station when both clients are present
 - [ ] Phone keeps working as fallback sync away from home
 - [x] Several dogs per account; privacy (LGPD): export (`GET /v1/me/export`) and deletion (`DELETE /v1/me`); consent screen in the app, recorded on the server with its version (`PUT /v1/me/consent`, separate research opt-in); export/delete buttons in the app; per-IP rate limit on login/register
