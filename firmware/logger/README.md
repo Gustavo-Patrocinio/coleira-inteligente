@@ -9,13 +9,16 @@ sessions. Packet format: contract 4.4; GATT service and sampling: ADR 0010.
 - Samples only while a client is subscribed; advertises as `Collar-Logger`.
 - Logs over the USB serial port in development builds; `release.conf` turns them off.
 
-> ⚠️ Written before the hardware arrived: it has **not been built or run yet**. Expect
-> small fixes on first build (Kconfig names and devicetree details differ between SDK
-> versions). Check items below off as they are verified.
+> ⚠️ Written before the hardware arrived: it **builds** but has **not run on a board yet**.
+> Check items below off as they are verified.
 
 ## Status
 
-- [ ] Builds with nRF Connect SDK v2.9.0 for `xiao_ble/nrf52840/sense`
+- [x] Builds with nRF Connect SDK v2.9.0 for `xiao_ble/nrf52840/sense` (2026-11-17):
+      dev build 0 warnings (FLASH 187 KB / 18%, RAM 58 KB / 23%); release build 1 harmless
+      warning from the board's defconfig (FLASH 149 KB, RAM 46 KB). Verified in the
+      generated config: accel ±16 g, gyro ±2000 dps, ODR 104 Hz, MTU 247, flash offset
+      0x27000 (UF2 bootloader), IMU node `st,lsm6dsl` @ 0x6A with its power regulator
 - [ ] Boots, IMU found (`IMU ... ready` on the serial log)
 - [ ] Advertises; `ml/scripts/record_ble.py` connects and receives packets
 - [ ] MTU ≥ 131 negotiated with the PC and with a phone
@@ -24,26 +27,36 @@ sessions. Packet format: contract 4.4; GATT service and sampling: ADR 0010.
 
 ## 1. Install the SDK (once)
 
-Easiest: **nRF Connect for VS Code** → *Manage toolchains* → install **v2.9.0** →
-*Manage SDKs* → install **v2.9.0**. Then *Open an existing application* →
-`firmware/logger`.
-
-Command line alternative (keeps the SDK outside this repo):
+Command line, any editor (this is what was used; Git Bash on Windows):
 
 ```bash
-mkdir collar-ws && cd collar-ws
-git clone https://github.com/Gustavo-Patrocinio/coleira-inteligente.git
-west init -l coleira-inteligente --mf firmware/west.yml
-west update
+mkdir -p ~/.local/bin
+curl -L -o ~/.local/bin/nrfutil.exe https://files.nordicsemi.com/artifactory/swtools/external/nrfutil/executables/x86_64-pc-windows-msvc/nrfutil.exe
+~/.local/bin/nrfutil.exe install sdk-manager
+~/.local/bin/nrfutil.exe sdk-manager install v2.9.0     # toolchain + SDK into C:\ncs (~30 min)
 ```
+
+The "unable to create symlinks" warning at the end only affects Matter/Memfault examples,
+not this firmware. Alternatives: **nRF Connect for VS Code** (*Manage toolchains/SDKs* →
+v2.9.0), or a west workspace from `firmware/west.yml` (see the comments in that file).
 
 ## 2. Build
 
+Run from the SDK folder, with a **short build path** (Windows has a 260-character path
+limit and deep build folders fail with "opening dependency file ... No such file"):
+
 ```bash
-west build -b xiao_ble/nrf52840/sense coleira-inteligente/firmware/logger
-# release (no logs):
-west build -b xiao_ble/nrf52840/sense coleira-inteligente/firmware/logger -- -DEXTRA_CONF_FILE=release.conf
+cd /c/ncs/v2.9.0
+APP=C:/Users/<you>/Documents/projetos/coleira-inteligente/firmware/logger
+~/.local/bin/nrfutil.exe sdk-manager toolchain launch --ncs-version v2.9.0 -- \
+  west build -p always -b xiao_ble/nrf52840/sense -d C:/ncs/b/logger "$APP"
+
+# release (no logs, no USB serial):
+~/.local/bin/nrfutil.exe sdk-manager toolchain launch --ncs-version v2.9.0 -- \
+  west build -p always -b xiao_ble/nrf52840/sense -d C:/ncs/b/logger-rel "$APP" -- -DEXTRA_CONF_FILE=release.conf
 ```
+
+The file to flash is `C:/ncs/b/logger/logger/zephyr/zephyr.uf2`.
 
 ## 3. Flash (no debugger needed)
 
@@ -51,8 +64,8 @@ The XIAO ships with a UF2 bootloader:
 
 1. Connect the XIAO by USB-C (a **data** cable).
 2. Double-tap the tiny reset button: a drive called `XIAO-SENSE` appears.
-3. Copy `build/logger/zephyr/zephyr.uf2` (or `build/zephyr/zephyr.uf2`) onto that drive. The
-   board reboots into the logger.
+3. Copy `C:/ncs/b/logger/logger/zephyr/zephyr.uf2` onto that drive. The board reboots into
+   the logger.
 
 The SWD probe (Raspberry Pi Pico) is only needed later for debugging and for MCUboot
 (Phase 3).

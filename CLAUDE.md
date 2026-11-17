@@ -258,7 +258,7 @@ the author's dog **and at least 4 other dogs** of different sizes (ADR 0009).
 - [ ] 3.7 V ~250 mAh LiPo with protection (PCM), soldered to the BAT+/BAT− pads under the XIAO (the board has no JST connector)
 - [ ] Provisional 3D-printed case, with the orientation marked
 
-**Firmware `firmware/logger/`** (code written 2026-11-16 before the hardware arrived, ADR 0010; not built or run yet; see its README status list. PC recorder: `ml/scripts/record_ble.py`):
+**Firmware `firmware/logger/`** (code written 2026-11-16 before the hardware arrived, ADR 0010; builds with NCS v2.9.0 with 0 warnings, not run on a board yet; see its README status list. PC recorder: `ml/scripts/record_ble.py`):
 - [ ] Read the IMU at 50 Hz (Zephyr driver; check the board's exact IMU model)
 - [ ] Custom GATT service, notify characteristic, section 4.4 packet
 - [ ] MTU ≥ 131 negotiation (+ Data Length Extension); `seq` counter to detect loss
@@ -450,5 +450,5 @@ from the production design, with a cost per unit that allows selling it.
 
 - **Current phase:** 1 (Phase 0 completed 2026-11-16)
 - **Goal:** open project for any dog first, product later (ADR 0009)
-- **Next task:** when the XIAO arrives: install NCS v2.9.0, build and flash `firmware/logger`, verify with `ml/scripts/record_ble.py` (README status list); meanwhile, the Flutter collection app
+- **Next task:** when the XIAO arrives: flash `firmware/logger` (already builds; NCS v2.9.0 installed in `C:\ncs`), verify with `ml/scripts/record_ble.py` (README status list); meanwhile, the Flutter collection app
 - **Hardware:** XIAO nRF52840 Sense + Raspberry Pi Pico H ordered (AliExpress, ETA Nov 27 – Dec 4, 2026); battery, jumpers and soldering kit to buy locally
