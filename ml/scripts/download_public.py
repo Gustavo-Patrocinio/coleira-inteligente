@@ -1,15 +1,18 @@
-"""Download the public dataset (Vehkaoja 2022 / Kumpulainen 2021) from Mendeley Data.
+"""Download the public dog IMU datasets from Mendeley Data.
 
 Usage (from ml/):
-    uv run python scripts/download_public.py
+    uv run python scripts/download_public.py              # all datasets
+    uv run python scripts/download_public.py vehkaoja     # just one
 
 - Uses Mendeley's public API and checks each file's SHA-256.
 - Skips files that already exist with the right hash (safe to run again).
-- Extracts the CSV zip into data/public/.
+- Extracts zips inside the dataset folder.
 
-Required citations (requested by the authors):
-- Vehkaoja et al. (2022), Data in Brief 40, 107822.
-- Kumpulainen et al. (2021), Applied Animal Behaviour Science 241, 105393.
+Datasets (see docs/public-dataset.md; cite them when you use them):
+- vehkaoja: Vehkaoja et al. (2022) Data in Brief 40, 107822 and Kumpulainen et al. (2021)
+  Applied Animal Behaviour Science 241, 105393. 45 dogs, collar + harness. → data/public/
+- marcato: Marcato et al. (2023) PLOS ONE 18(6), e0286311. 42 dogs, neck + back + chest,
+  CC BY 4.0. → data/public/marcato/
 """
 
 from __future__ import annotations
@@ -21,11 +24,21 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-DATASET_ID = "vxhx934tbn"
-VERSION = 4
-WANTED = {"Data_description.txt", "DogInfo.csv", "DogMoveData_csv_format.zip"}
-API = f"https://data.mendeley.com/public-api/datasets/{DATASET_ID}/files?folder_id=root&version={VERSION}"
-OUT_DIR = Path(__file__).resolve().parents[1] / "data" / "public"
+PUBLIC = Path(__file__).resolve().parents[1] / "data" / "public"
+DATASETS = {
+    "vehkaoja": {
+        "id": "vxhx934tbn",
+        "version": 4,
+        "files": {"Data_description.txt", "DogInfo.csv", "DogMoveData_csv_format.zip"},
+        "out": PUBLIC,
+    },
+    "marcato": {
+        "id": "mpph6bmn7g",
+        "version": 1,
+        "files": {"readme.md", "df_dogs.csv", "df_raw.csv"},
+        "out": PUBLIC / "marcato",
+    },
+}
 UA = {"User-Agent": "coleira-ml-downloader"}
 
 
@@ -50,34 +63,54 @@ def download(url: str, dest: Path, size: int) -> None:
     tmp.replace(dest)
 
 
-def main() -> int:
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
-    with urllib.request.urlopen(urllib.request.Request(API, headers=UA)) as resp:
+def extract(zip_path: Path, out_dir: Path) -> None:
+    with zipfile.ZipFile(zip_path) as zf:
+        for member in zf.namelist():
+            target = (out_dir / member).resolve()
+            if not target.is_relative_to(out_dir.resolve()):  # guard against path traversal
+                raise RuntimeError(f"suspicious path in zip: {member}")
+        zf.extractall(out_dir)
+        print("extracted:", ", ".join(zf.namelist()))
+
+
+def fetch(name: str) -> int:
+    ds = DATASETS[name]
+    out: Path = ds["out"]
+    out.mkdir(parents=True, exist_ok=True)
+    api = (
+        f"https://data.mendeley.com/public-api/datasets/{ds['id']}/files"
+        f"?folder_id=root&version={ds['version']}"
+    )
+    with urllib.request.urlopen(urllib.request.Request(api, headers=UA)) as resp:
         files = json.load(resp)
 
     for meta in files:
-        name = meta["filename"]
-        if name not in WANTED:
+        fname = meta["filename"]
+        if fname not in ds["files"]:
             continue
         details = meta["content_details"]
-        dest = OUT_DIR / name
+        dest = out / fname
         if dest.exists() and sha256(dest) == details["sha256_hash"]:
-            print(f"ok (already there): {name}")
+            print(f"ok (already there): {name}/{fname}")
             continue
-        print(f"downloading: {name}")
+        print(f"downloading: {name}/{fname}")
         download(details["download_url"], dest, details["size"])
         if sha256(dest) != details["sha256_hash"]:
-            print(f"ERROR: hash mismatch for {name}", file=sys.stderr)
+            print(f"ERROR: hash mismatch for {fname}", file=sys.stderr)
             return 1
+        if dest.suffix == ".zip":
+            extract(dest, out)
+    return 0
 
-    zip_path = OUT_DIR / "DogMoveData_csv_format.zip"
-    with zipfile.ZipFile(zip_path) as zf:
-        for member in zf.namelist():
-            target = (OUT_DIR / member).resolve()
-            if not target.is_relative_to(OUT_DIR.resolve()):  # guard against path traversal
-                raise RuntimeError(f"suspicious path in zip: {member}")
-        zf.extractall(OUT_DIR)
-        print("extracted:", ", ".join(zf.namelist()))
+
+def main() -> int:
+    names = sys.argv[1:] or list(DATASETS)
+    for name in names:
+        if name not in DATASETS:
+            print(f"unknown dataset: {name} (choose from {', '.join(DATASETS)})", file=sys.stderr)
+            return 2
+        if fetch(name):
+            return 1
     return 0
 
 

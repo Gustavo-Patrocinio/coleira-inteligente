@@ -155,8 +155,8 @@ def resample_to_50hz(df: pd.DataFrame) -> pd.DataFrame:
         t = g["t_s"].to_numpy()[::2]
         out = pd.DataFrame(x.astype(np.float32), columns=SENSOR_COLS)
         out.insert(0, "t_s", t)
-        out.insert(0, "test_num", np.int8(test))
-        out.insert(0, "dog_id", np.int16(dog))
+        out.insert(0, "test_num", test)
+        out.insert(0, "dog_id", dog)
         out["class_id"] = labels
         parts.append(out)
     return pd.concat(parts, ignore_index=True)

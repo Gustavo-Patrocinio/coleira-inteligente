@@ -264,7 +264,7 @@ the author's dog **and at least 4 other dogs** of different sizes (ADR 0009).
 - [ ] Generate the session `meta.json` (including `video_start_phone_ts_ms`)
 - [ ] Export the session (share or copy to the PC)
 
-**Protocol (`docs/protocols/collection.md`):**
+**Protocol (`docs/protocols/collection.md`, written 2026-11-16, with `labeling.md` and `consent-template.md`; items below are done when practiced in real sessions):**
 - [ ] Adaptation: a few days wearing the collar without recording; check the skin
 - [ ] Sync: 3 taps on the case in front of the camera at the **start and end** of each session (ADR 0003)
 - [ ] 10–20 min sessions: sleeping, leash walk, play, kibble, water
@@ -445,5 +445,5 @@ from the production design, with a cost per unit that allows selling it.
 
 - **Current phase:** 1 (Phase 0 completed 2026-11-16)
 - **Goal:** open project for any dog first, product later (ADR 0009)
-- **Next task:** while the hardware ships: collection protocol (`docs/protocols/collection.md`, including consent for other dogs' owners); then the logger firmware
+- **Next task:** logger firmware (`firmware/logger/`) while the hardware ships; protocol, labeling guide and consent template are written
 - **Hardware:** XIAO nRF52840 Sense + Raspberry Pi Pico H ordered (AliExpress, ETA Nov 27 – Dec 4, 2026); battery, jumpers and soldering kit to buy locally
