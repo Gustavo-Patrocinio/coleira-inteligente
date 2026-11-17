@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Today</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1F5FBF}a:hover{color:#174A94}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; background: #F7F7F5; color: #1C1F23; font-family: Inter, system-ui, sans-serif">
+  <div style="flex: 1; overflow-y: auto; padding: 24px 20px 16px; display: flex; flex-direction: column; gap: 16px">
+
+    <div style="display: flex; align-items: center; gap: 12px">
+      <div style="width: 44px; height: 44px; border-radius: 22px; background: #DCE6F2; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #2E5A8C">T</div>
+      <div style="display: flex; flex-direction: column; flex: 1">
+        <span style="font-size: 20px; font-weight: 700">Thor · today</span>
+        <span style="font-size: 13px; color: #5C6670">Sunday, Nov 16 · synced 5 min ago</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 4px; font-size: 13px; color: #5C6670">
+        <svg width="22" height="12" viewBox="0 0 22 12" aria-hidden="true"><rect x="0.5" y="0.5" width="18" height="11" rx="2.5" fill="none" stroke="#5C6670"></rect><rect x="2.5" y="2.5" width="11.5" height="7" rx="1" fill="#54A24B"></rect><rect x="19.5" y="4" width="2" height="4" rx="1" fill="#5C6670"></rect></svg>
+        82%
+      </div>
+    </div>
+
+    <a href="Alerts.dc.html" style="display: flex; gap: 12px; align-items: center; padding: 12px 14px; background: #FFF3E6; border: 1px solid #F3C99B; border-radius: 14px; text-decoration: none; color: #1C1F23">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#B45309" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 2 20h20L12 3z"></path><path d="M12 10v4"></path><path d="M12 17h.01"></path></svg>
+      <span style="display: flex; flex-direction: column; flex: 1">
+        <span style="font-weight: 600; font-size: 15px">Scratched 3× more than usual</span>
+        <span style="font-size: 13px; color: #6B4A1F">11 min today · his normal: 2 to 5 min</span>
+      </span>
+      <span style="color: #B45309; font-size: 20px">›</span>
+    </a>
+
+    <div style="background: #FFFFFF; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 10px; border: 1px solid #E6E8E4">
+      <div style="display: flex; justify-content: space-between; align-items: baseline">
+        <span style="font-weight: 600; font-size: 15px">Timeline</span>
+        <span style="font-size: 12px; color: #5C6670">each bar = 15 min</span>
+      </div>
+      <div style="display: flex; height: 40px; border-radius: 8px; overflow: hidden; gap: 1px">
+        <sc-for list="{{blocks}}" as="b" hint-placeholder-count="96">
+          <div style="{{b.style}}" title="{{b.tip}}"></div>
+        </sc-for>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 11px; color: #5C6670">
+        <span>12 am</span><span>6 am</span><span>12 pm</span><span>6 pm</span><span>12 am</span>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: #3D454D">
+        <sc-for list="{{legend}}" as="l" hint-placeholder-count="4">
+          <span style="display: flex; align-items: center; gap: 5px"><span style="{{l.sw}}"></span>{{l.name}}</span>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 10px">
+      <div style="background: #FFFFFF; border-radius: 16px; padding: 14px 16px; border: 1px solid #E6E8E4; display: flex; align-items: center; gap: 14px">
+        <div style="width: 44px; height: 44px; border-radius: 12px; background: #E3F0DF; display: flex; align-items: center; justify-content: center; flex: none">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2E6B2A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 4a1.5 1.5 0 1 0 0 .01"></path><path d="M9 20l2-6 3 2v4"></path><path d="M7 11l3-3 4 1 3 3"></path></svg>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 2px; flex: 1">
+          <span style="font-size: 13px; color: #5C6670">Exercise</span>
+          <span style="font-size: 20px; font-weight: 700">1h12 <span style="font-size: 14px; font-weight: 500; color: #5C6670">walking · 24 min running</span></span>
+          <span style="font-size: 12px; color: #2E6B2A">his normal · energy burned for today</span>
+        </div>
+      </div>
+      <a href="Sleep.dc.html" style="background: #FFFFFF; border-radius: 16px; padding: 14px 16px; border: 1px solid #E6E8E4; display: flex; align-items: center; gap: 14px; text-decoration: none; color: #1C1F23">
+        <span style="width: 44px; height: 44px; border-radius: 12px; background: #E4EAF3; display: flex; align-items: center; justify-content: center; flex: none">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2E5A8C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"></path></svg>
+        </span>
+        <span style="display: flex; flex-direction: column; gap: 2px; flex: 1">
+          <span style="font-size: 13px; color: #5C6670">Sleep (last night)</span>
+          <span style="font-size: 20px; font-weight: 700">7h40 <span style="font-size: 14px; font-weight: 500; color: #5C6670">woke up 2×</span></span>
+          <span style="font-size: 12px; color: #2E6B2A">his normal · breathing 18/min</span>
+        </span>
+        <span style="color: #5C6670; font-size: 20px">›</span>
+      </a>
+      <div style="background: #FFFFFF; border-radius: 16px; padding: 14px 16px; border: 1px solid #F3C99B; display: flex; align-items: center; gap: 14px">
+        <div style="width: 44px; height: 44px; border-radius: 12px; background: #FBE9D7; display: flex; align-items: center; justify-content: center; flex: none">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#B45309" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v6a5 5 0 0 0 10 0V4"></path><path d="M10 4v5"></path><path d="M14 4v5"></path><path d="M12 15v5"></path></svg>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 2px; flex: 1">
+          <span style="font-size: 13px; color: #5C6670">Skin</span>
+          <span style="font-size: 20px; font-weight: 700">Scratched 11 min <span style="font-size: 14px; font-weight: 500; color: #5C6670">in 6 bouts</span></span>
+          <span style="font-size: 12px; color: #B45309">3× his normal · 2nd day in a row</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="background: #FFFFFF; border-radius: 16px; padding: 16px; border: 1px solid #E6E8E4; display: flex; flex-direction: column; gap: 12px">
+      <span style="font-weight: 600; font-size: 15px">Moments of the day</span>
+      <sc-for list="{{moments}}" as="m" hint-placeholder-count="5">
+        <div style="display: flex; gap: 12px; align-items: center">
+          <span style="font-size: 13px; color: #5C6670; width: 42px; font-variant-numeric: tabular-nums">{{m.time}}</span>
+          <span style="{{m.sw}}"></span>
+          <span style="flex: 1; font-size: 14px">{{m.text}}</span>
+          <span style="font-size: 13px; color: #5C6670">{{m.dur}}</span>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <nav style="display: flex; border-top: 1px solid #E1E4DF; background: #FFFFFF; padding: 6px 4px 18px">
+    <a href="Main.dc.html" aria-current="page" style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 0; min-height: 44px; text-decoration: none; color: #1F5FBF; font-size: 11px; font-weight: 600">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>Today</a>
+    <a href="Trends.dc.html" style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 0; min-height: 44px; text-decoration: none; color: #5C6670; font-size: 11px">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 19V5"></path><path d="M4 19h16"></path><path d="M8 15l4-4 3 3 5-6"></path></svg>Trends</a>
+    <a href="Alerts.dc.html" style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 0; min-height: 44px; text-decoration: none; color: #5C6670; font-size: 11px">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4l2-2z"></path><path d="M10 21h4"></path></svg>Alerts</a>
+    <a href="Collar.dc.html" style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 0; min-height: 44px; text-decoration: none; color: #5C6670; font-size: 11px">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="7" y="6" width="10" height="12" rx="3"></rect><path d="M3 12h4"></path><path d="M17 12h4"></path></svg>Collar</a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var C = { still: '#4C78A8', walking: '#54A24B', running: '#F58518', scratching: '#E45756', none: '#E3E6E1' };
+    var NAMES = { still: 'still', walking: 'walking', running: 'running', scratching: 'scratching', none: 'no data' };
+    // 96 blocks of 15 min (sample data)
+    function classAt(q) {
+      var h = q / 4;
+      if (h >= 7 && h < 7.75) return 'walking';
+      if (h >= 12.25 && h < 12.5) return 'walking';
+      if (h >= 14.25 && h < 14.5) return 'scratching';
+      if (h >= 16 && h < 16.25) return 'scratching';
+      if (h >= 18 && h < 18.5) return 'running';
+      if (h >= 18.5 && h < 19.5) return 'walking';
+      if (h >= 2 && h < 2.25) return 'walking';
+      if (h >= 9 && h < 9.25) return 'walking';
+      if (h >= 15 && h < 15.25) return 'walking';
+      if (h >= 23.5) return 'none';
+      return 'still';
+    }
+    var blocks = [];
+    for (var q = 0; q < 96; q++) {
+      var c = classAt(q);
+      var hh = Math.floor(q / 4), mm = (q % 4) * 15;
+      blocks.push({ style: 'flex: 1; background: ' + C[c], tip: hh + ':' + (mm < 10 ? '0' : '') + mm + ' · ' + NAMES[c] });
+    }
+    var sw = function (c) { return 'width: 10px; height: 10px; border-radius: 3px; flex: none; background: ' + C[c]; };
+    var legend = ['still', 'walking', 'running', 'scratching'].map(function (c) { return { name: NAMES[c], sw: sw(c) }; });
+    var moments = [
+      { time: '02:10', text: 'Got up at night', dur: '6 min', sw: sw('walking') },
+      { time: '07:02', text: 'Walk', dur: '48 min', sw: sw('walking') },
+      { time: '14:20', text: 'Scratched (4 times in a row)', dur: '6 min', sw: sw('scratching') },
+      { time: '16:05', text: 'Scratched', dur: '3 min', sw: sw('scratching') },
+      { time: '18:04', text: 'Ran at the park', dur: '24 min', sw: sw('running') }
+    ];
+    return { blocks: blocks, legend: legend, moments: moments };
+  }
+}
+</script>
+</body>
+</html>

@@ -73,7 +73,8 @@ Evaluated with 5-fold `GroupKFold` by dog on the
 ## What the owner sees
 
 The app is built around questions an owner actually asks, always compared against the
-dog's own normal ([docs/product/indicators.md](docs/product/indicators.md)):
+dog's own normal ([indicators](docs/product/indicators.md) ·
+[clickable prototype](docs/product/app-prototype/)):
 
 | Indicator | Question |
 |---|---|

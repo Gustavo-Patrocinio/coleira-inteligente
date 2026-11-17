@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Alerts</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1F5FBF}a:hover{color:#174A94}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; background: #F7F7F5; color: #1C1F23; font-family: Inter, system-ui, sans-serif">
+  <div style="flex: 1; overflow-y: auto; padding: 24px 20px 16px; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; flex-direction: column; gap: 2px">
+      <span style="font-size: 20px; font-weight: 700">Alerts</span>
+      <span style="font-size: 13px; color: #5C6670">when Thor drifts far from his own normal</span>
+    </div>
+
+    <sc-for list="{{alerts}}" as="a" hint-placeholder-count="3">
+      <div style="{{a.card}}">
+        <div style="display: flex; gap: 10px; align-items: flex-start">
+          <span style="{{a.dot}}"></span>
+          <div style="display: flex; flex-direction: column; gap: 3px; flex: 1">
+            <span style="font-weight: 600; font-size: 15px">{{a.title}}</span>
+            <span style="font-size: 13px; color: #3D454D">{{a.body}}</span>
+            <span style="font-size: 12px; color: #5C6670">{{a.when}}</span>
+          </div>
+        </div>
+        <sc-if value="{{a.askFeedback}}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; gap: 8px; align-items: center; margin-top: 10px">
+            <span style="font-size: 12px; color: #5C6670; flex: 1">Did this alert make sense?</span>
+            <button onClick="{{a.yes}}" style="{{a.yesStyle}}">Yes</button>
+            <button onClick="{{a.no}}" style="{{a.noStyle}}">False alarm</button>
+          </div>
+        </sc-if>
+      </div>
+    </sc-for>
+
+    <div style="background: #FFFFFF; border-radius: 16px; padding: 16px; border: 1px solid #E6E8E4; display: flex; flex-direction: column; gap: 4px">
+      <span style="font-weight: 600; font-size: 15px; margin-bottom: 6px">Notify me about</span>
+      <sc-for list="{{prefs}}" as="p" hint-placeholder-count="4">
+        <label style="display: flex; align-items: center; gap: 12px; min-height: 44px; font-size: 14px; cursor: pointer">
+          <span style="flex: 1">{{p.name}}</span>
+          <input type="checkbox" checked="{{p.on}}" onChange="{{p.toggle}}" style="width: 22px; height: 22px; accent-color: #1F5FBF">
+        </label>
+      </sc-for>
+    </div>
+
+    <div style="background: #EEF2F7; border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px">
+      <span style="font-weight: 600; font-size: 14px">How it works</span>
+      <span style="font-size: 13px; color: #3D454D; line-height: 1.45">The app learns Thor's normal for each hour of the day, separating weekdays from weekends, based on the last 28 days. It only notifies you when the difference is too large to be an ordinary day. During the first two weeks it only watches and does not send alerts yet.</span>
+    </div>
+  </div>
+
+  <nav style="display: flex; border-top: 1px solid #E1E4DF; background: #FFFFFF; padding: 6px 4px 18px">
+    <a href="Main.dc.html" style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 0; min-height: 44px; text-decoration: none; color: #5C6670; font-size: 11px">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>Today</a>
+    <a href="Trends.dc.html" style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 0; min-height: 44px; text-decoration: none; color: #5C6670; font-size: 11px">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 19V5"></path><path d="M4 19h16"></path><path d="M8 15l4-4 3 3 5-6"></path></svg>Trends</a>
+    <a href="Alerts.dc.html" aria-current="page" style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 0; min-height: 44px; text-decoration: none; color: #1F5FBF; font-size: 11px; font-weight: 600">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4l2-2z"></path><path d="M10 21h4"></path></svg>Alerts</a>
+    <a href="Collar.dc.html" style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 0; min-height: 44px; text-decoration: none; color: #5C6670; font-size: 11px">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="7" y="6" width="10" height="12" rx="3"></rect><path d="M3 12h4"></path><path d="M17 12h4"></path></svg>Collar</a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      feedback: {},
+      prefs: { activity: true, scratching: true, night: true, battery: true }
+    };
+  }
+  renderVals() {
+    var self = this;
+    var fb = this.state.feedback;
+    var base = [
+      { id: 'a1', level: 'high', title: 'Scratched 3× more than usual', body: '11 min today, in 6 bouts. His normal is 2 to 5 min per day. Worth checking his skin and ears.', when: 'today, 4:10 pm', askFeedback: true },
+      { id: 'a2', level: 'medium', title: 'Scratching above normal', body: '9 min yesterday. His normal is 2 to 5 min per day.', when: 'yesterday, 9:00 pm', askFeedback: true },
+      { id: 'a3', level: 'resolved', title: 'Activity 40% below normal', body: 'From Nov 10 to 12 he was much less active than usual. Back to normal on Nov 13.', when: 'Nov 10–12 · resolved', askFeedback: false }
+    ];
+    var dotColor = { high: '#E8590C', medium: '#F59F00', resolved: '#8C959E' };
+    var border = { high: '#F3C99B', medium: '#F2DDB0', resolved: '#E6E8E4' };
+    var btn = function (active) {
+      return 'min-height: 36px; padding: 0 12px; border-radius: 9px; font: 500 13px Inter, system-ui, sans-serif; cursor: pointer; ' +
+        (active ? 'background: #1F5FBF; color: #FFFFFF; border: 1px solid #1F5FBF' : 'background: #FFFFFF; color: #1C1F23; border: 1px solid #D5D9D3');
+    };
+    var alerts = base.map(function (a) {
+      var setFb = function (v) { return function () { var n = Object.assign({}, self.state.feedback); n[a.id] = v; self.setState({ feedback: n }); }; };
+      return Object.assign({}, a, {
+        card: 'background: #FFFFFF; border-radius: 16px; padding: 14px 16px; border: 1px solid ' + border[a.level] + (a.level === 'resolved' ? '; opacity: 0.85' : ''),
+        dot: 'width: 10px; height: 10px; border-radius: 5px; margin-top: 5px; flex: none; background: ' + dotColor[a.level],
+        yes: setFb('yes'), no: setFb('no'),
+        yesStyle: btn(fb[a.id] === 'yes'), noStyle: btn(fb[a.id] === 'no')
+      });
+    });
+    var labels = { activity: 'Activity far below or above normal', scratching: 'Scratching above normal', night: 'Restless nights', battery: 'Low collar battery' };
+    var prefs = Object.keys(labels).map(function (k) {
+      return {
+        name: labels[k], on: self.state.prefs[k],
+        toggle: function () { var n = Object.assign({}, self.state.prefs); n[k] = !n[k]; self.setState({ prefs: n }); }
+      };
+    });
+    return { alerts: alerts, prefs: prefs };
+  }
+}
+</script>
+</body>
+</html>

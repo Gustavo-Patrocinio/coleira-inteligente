@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Trends</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1F5FBF}a:hover{color:#174A94}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; background: #F7F7F5; color: #1C1F23; font-family: Inter, system-ui, sans-serif">
+  <div style="flex: 1; overflow-y: auto; padding: 24px 20px 16px; display: flex; flex-direction: column; gap: 16px">
+    <div style="display: flex; flex-direction: column; gap: 2px">
+      <span style="font-size: 20px; font-weight: 700">Thor's trends</span>
+      <span style="font-size: 13px; color: #5C6670">compared with his own normal (last 28 days)</span>
+    </div>
+
+    <div style="display: flex; background: #E9ECE7; border-radius: 12px; padding: 4px; gap: 4px">
+      <button onClick="{{pick7}}" style="{{btn7}}">7 days</button>
+      <button onClick="{{pick30}}" style="{{btn30}}">30 days</button>
+    </div>
+
+    <div style="background: #FFFFFF; border-radius: 16px; padding: 16px; border: 1px solid #E6E8E4; display: flex; flex-direction: column; gap: 10px">
+      <div style="display: flex; justify-content: space-between; align-items: baseline">
+        <span style="font-weight: 600; font-size: 15px">Active time per day</span>
+        <span style="font-size: 12px; color: #5C6670">min</span>
+      </div>
+      <div style="position: relative; height: 130px; display: flex; align-items: flex-end; gap: {{gap}}">
+        <div style="position: absolute; left: 0; right: 0; bottom: 92px; height: 27px; background: #DDEBD8; border-radius: 4px"></div>
+        <sc-for list="{{active}}" as="d" hint-placeholder-count="7">
+          <div style="{{d.style}}" title="{{d.tip}}"></div>
+        </sc-for>
+      </div>
+      <div style="display: flex; gap: {{gap}}; font-size: 11px; color: #5C6670">
+        <sc-for list="{{active}}" as="d" hint-placeholder-count="7">
+          <span style="flex: 1; text-align: center">{{d.label}}</span>
+        </sc-for>
+      </div>
+      <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #3D454D">
+        <span style="width: 14px; height: 10px; background: #DDEBD8; border-radius: 2px"></span>normal range: 2h50–3h40
+        <span style="width: 10px; height: 10px; background: #F58518; border-radius: 2px; margin-left: 10px"></span>out of range
+      </div>
+    </div>
+
+    <div style="background: #FFFFFF; border-radius: 16px; padding: 16px; border: 1px solid #E6E8E4; display: flex; flex-direction: column; gap: 10px">
+      <div style="display: flex; justify-content: space-between; align-items: baseline">
+        <span style="font-weight: 600; font-size: 15px">Scratching per day</span>
+        <span style="font-size: 12px; color: #5C6670">min</span>
+      </div>
+      <div style="position: relative; height: 100px; display: flex; align-items: flex-end; gap: {{gap}}">
+        <div style="position: absolute; left: 0; right: 0; bottom: 17px; height: 25px; background: #F6E0E0; border-radius: 4px"></div>
+        <sc-for list="{{scratch}}" as="d" hint-placeholder-count="7">
+          <div style="{{d.style}}" title="{{d.tip}}"></div>
+        </sc-for>
+      </div>
+      <div style="display: flex; gap: {{gap}}; font-size: 11px; color: #5C6670">
+        <sc-for list="{{scratch}}" as="d" hint-placeholder-count="7">
+          <span style="flex: 1; text-align: center">{{d.label}}</span>
+        </sc-for>
+      </div>
+      <span style="font-size: 12px; color: #3D454D">normal range: 2 to 5 min per day</span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+      <div style="background: #FFFFFF; border-radius: 16px; padding: 14px; border: 1px solid #E6E8E4; display: flex; flex-direction: column; gap: 4px">
+        <span style="font-size: 13px; color: #5C6670">Average active</span>
+        <span style="font-size: 22px; font-weight: 700">{{avgActive}}</span>
+        <span style="font-size: 12px; color: #5C6670">per day in the period</span>
+      </div>
+      <div style="background: #FFFFFF; border-radius: 16px; padding: 14px; border: 1px solid #E6E8E4; display: flex; flex-direction: column; gap: 4px">
+        <span style="font-size: 13px; color: #5C6670">Restless nights</span>
+        <span style="font-size: 22px; font-weight: 700">{{badNights}}</span>
+        <span style="font-size: 12px; color: #5C6670">got up more than 3× at night</span>
+      </div>
+    </div>
+  </div>
+
+  <nav style="display: flex; border-top: 1px solid #E1E4DF; background: #FFFFFF; padding: 6px 4px 18px">
+    <a href="Main.dc.html" style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 0; min-height: 44px; text-decoration: none; color: #5C6670; font-size: 11px">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>Today</a>
+    <a href="Trends.dc.html" aria-current="page" style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 0; min-height: 44px; text-decoration: none; color: #1F5FBF; font-size: 11px; font-weight: 600">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 19V5"></path><path d="M4 19h16"></path><path d="M8 15l4-4 3 3 5-6"></path></svg>Trends</a>
+    <a href="Alerts.dc.html" style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 0; min-height: 44px; text-decoration: none; color: #5C6670; font-size: 11px">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4l2-2z"></path><path d="M10 21h4"></path></svg>Alerts</a>
+    <a href="Collar.dc.html" style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 0; min-height: 44px; text-decoration: none; color: #5C6670; font-size: 11px">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="7" y="6" width="10" height="12" rx="3"></rect><path d="M3 12h4"></path><path d="M17 12h4"></path></svg>Collar</a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { days: 7 };
+  }
+  renderVals() {
+    var days = this.state.days;
+    // 30 days of sample data: Oct 18 to Nov 16. Activity dip on Nov 10–12, high scratching on the last 2 days.
+    var activeAll = [196, 205, 188, 214, 201, 179, 222, 199, 187, 208, 193, 216, 184, 200, 211, 190, 203, 186, 219, 197, 205, 192, 189, 118, 109, 121, 181, 198, 206, 192];
+    var scratchAll = [3, 2, 4, 3, 2, 3, 5, 3, 2, 4, 3, 2, 3, 4, 3, 2, 3, 4, 3, 2, 4, 3, 3, 2, 3, 4, 3, 3, 9, 11];
+    // times he got up between 23:00 and 06:00
+    var nightsAll = [1, 2, 1, 0, 2, 1, 3, 1, 2, 1, 0, 2, 1, 1, 2, 1, 0, 1, 2, 1, 1, 2, 5, 4, 6, 2, 1, 2, 4, 2];
+    var wd = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+    var start = activeAll.length - days;
+    var fmt = function (m) { return Math.floor(m / 60) + 'h' + ('0' + (m % 60)).slice(-2); };
+    var active = [], scratch = [];
+    for (var i = start; i < activeAll.length; i++) {
+      var month = i < 14 ? 'Oct' : 'Nov';
+      var dayNum = i < 14 ? i + 18 : i - 13; // index 0 = Oct 18
+      var label = days === 7 ? wd[(i + 6) % 7] : ((i - start) % 7 === 0 ? String(dayNum) : '');
+      var a = activeAll[i], s = scratchAll[i];
+      var aOut = a < 170 || a > 220, sOut = s > 5;
+      active.push({
+        label: label,
+        tip: month + ' ' + dayNum + ': ' + fmt(a),
+        style: 'flex: 1; border-radius: 3px 3px 0 0; height: ' + Math.round(a / 240 * 130) + 'px; background: ' + (aOut ? '#F58518' : '#54A24B')
+      });
+      scratch.push({
+        label: label,
+        tip: month + ' ' + dayNum + ': ' + s + ' min',
+        style: 'flex: 1; border-radius: 3px 3px 0 0; height: ' + Math.round(s / 12 * 100) + 'px; background: ' + (sOut ? '#F58518' : '#E45756')
+      });
+    }
+    var sum = function (arr) { return arr.slice(start).reduce(function (x, y) { return x + y; }, 0); };
+    var on = 'flex: 1; min-height: 40px; border: none; border-radius: 9px; font: 600 14px Inter, system-ui, sans-serif; background: #FFFFFF; color: #1C1F23; cursor: pointer';
+    var off = 'flex: 1; min-height: 40px; border: none; border-radius: 9px; font: 500 14px Inter, system-ui, sans-serif; background: transparent; color: #5C6670; cursor: pointer';
+    var self = this;
+    return {
+      active: active,
+      scratch: scratch,
+      gap: days === 7 ? '10px' : '3px',
+      avgActive: fmt(Math.round(sum(activeAll) / days)),
+      badNights: nightsAll.slice(start).filter(function (n) { return n > 3; }).length + ' of ' + days,
+      btn7: days === 7 ? on : off,
+      btn30: days === 30 ? on : off,
+      pick7: function () { self.setState({ days: 7 }); },
+      pick30: function () { self.setState({ days: 30 }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

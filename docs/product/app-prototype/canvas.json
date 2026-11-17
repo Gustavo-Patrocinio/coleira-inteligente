@@ -1,0 +1,27 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "Main.dc.html": { "h": 844, "is_interactive": true, "radius": 28, "title": "Today", "w": 390, "x": 0, "y": 0 },
+    "Sleep.dc.html": { "h": 844, "is_interactive": true, "radius": 28, "title": "Sleep", "w": 390, "x": 470, "y": 0 },
+    "Trends.dc.html": { "h": 844, "is_interactive": true, "radius": 28, "title": "Trends", "w": 390, "x": 940, "y": 0 },
+    "Alerts.dc.html": { "h": 844, "is_interactive": true, "radius": 28, "title": "Alerts", "w": 390, "x": 1410, "y": 0 },
+    "Collar.dc.html": { "h": 844, "is_interactive": true, "radius": 28, "title": "Collar", "w": 390, "x": 1880, "y": 0 }
+  },
+  "createdOnFiles": { "at": "2026-11-16T21:30:00Z", "v": 1 },
+  "designSystems": [],
+  "launch": { "view": "canvas" },
+  "noteOrder": ["title", "ask"],
+  "notes": {
+    "ask": {
+      "text": "Sample data, nothing real.\n\nTo decide before building:\n• Which number would you check every day?\n• What is missing? What is extra?\n• Do the alerts make sense?\n\nPress Play on any screen: the bottom tabs navigate. The Sleep card opens the sleep screen.",
+      "w": 320,
+      "x": 2350,
+      "y": 0
+    },
+    "title": { "kind": "title1", "maxW": 2270, "text": "Smart collar app · prototype (sample data)", "w": 240, "x": 0, "y": -300 }
+  },
+  "order": ["Main.dc.html", "Sleep.dc.html", "Trends.dc.html", "Alerts.dc.html", "Collar.dc.html"],
+  "pages": [],
+  "title": "Smart collar app prototype"
+}
