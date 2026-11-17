@@ -270,7 +270,7 @@ Little-endian, v1 (ADR 0001):
 - [ ] Serviço BLE de sync: o app pede "desde o minuto X" e recebe o lote
 - [ ] Modo dump bruto, ativável pelo app (para continuar coletando dataset)
 - [ ] Relógio: o app envia a hora atual ao conectar; a coleira mantém
-- [ ] App: tela de rotina do dia (linha do tempo por classe), sync ao abrir
+- [ ] App: tela de rotina do dia (linha do tempo por classe + indicadores Exercício, Noite e Pele; ver `docs/product/indicadores.md`), sync ao abrir
 - [ ] Primeira medição de consumo com PPK2 → `docs/energy-budget.md`
 
 **Pronto quando:** 24 h seguidas registradas sem fio, sync sem perda nem duplicata, OTA testada.
@@ -286,7 +286,8 @@ Little-endian, v1 (ADR 0001):
 - [ ] API Fastify + Zod: auth (JWT), CRUD de cachorros/dispositivos, `POST /ingest` em lote **idempotente** (chave `device_id + minute_ts`)
 - [ ] Endpoints de consulta: rotina do dia, tendências da semana/mês
 - [ ] Job de baseline: por cachorro × hora do dia × (dia útil/fim de semana), janela de 28 dias, **mediana + MAD**
-- [ ] Alertas por z-score robusto (|z| > 3) para atividade total, tempo coçando e chacoalhões; exigir ≥ 14 dias de histórico antes de alertar
+- [ ] Alertas por z-score robusto (|z| > 3) para atividade total, tempo coçando e agitação noturna (vezes que levantou entre 23h e 6h); exigir ≥ 14 dias de histórico antes de alertar
+- [ ] Feedback "fez sentido / falso alarme" em cada alerta, guardado para calibrar os limiares
 - [ ] Push via Firebase Cloud Messaging
 - [ ] Testes: ingestão duplicada, buracos no sync, fuso horário
 - [ ] App: telas de tendência e de alertas
