@@ -41,6 +41,7 @@ dependencies:
   http: ^1.6.0
   flutter_secure_storage: ^11.2.0
   universal_ble: ^3.3.0
+  crypto: ^3.0.8
 
 dev_dependencies:
   flutter_test:

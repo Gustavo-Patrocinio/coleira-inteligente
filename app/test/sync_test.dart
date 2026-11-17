@@ -254,6 +254,9 @@ void main() {
     await File('${dir.path}/summaries.bin')
         .writeAsBytes([1, 2, 3], mode: FileMode.append);
     expect(await cache.range(t0, t0 + 3600), hasLength(3));
+    await cache.clear(); // sign-out
+    expect(await cache.range(t0, t0 + 3600), isEmpty);
+    await cache.clear(); // twice is fine
     await dir.delete(recursive: true);
   });
 }

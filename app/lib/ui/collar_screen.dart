@@ -6,15 +6,26 @@ import 'package:share_plus/share_plus.dart';
 
 import '../api/day_summary.dart';
 import '../collar/collar_link.dart';
+import '../collar/firmware_update.dart';
 import '../collar/sync_service.dart';
 import '../collection/collection_screen.dart';
 import 'app_state.dart';
+import 'firmware_card.dart';
 import 'onboarding.dart';
 
 class CollarScreen extends StatefulWidget {
-  const CollarScreen({super.key, required this.link, required this.sync});
+  CollarScreen({
+    super.key,
+    required this.link,
+    required this.sync,
+    FirmwareUpdater? updater,
+    ReleaseSource? releases,
+  }) : updater = updater ?? FirmwareUpdater(UniversalBleSmpTransport()),
+       releases = releases ?? ReleaseSource();
   final CollarLink link;
   final SyncTransport sync;
+  final FirmwareUpdater updater;
+  final ReleaseSource releases;
 
   @override
   State<CollarScreen> createState() => _CollarScreenState();
@@ -139,6 +150,12 @@ class _CollarScreenState extends State<CollarScreen> {
               ),
             ),
           ),
+          if (_paired != null)
+            FirmwareCard(
+              collarId: _paired!,
+              updater: widget.updater,
+              releases: widget.releases,
+            ),
           Card(
             child: ListTile(
               leading: const Icon(Icons.videocam),

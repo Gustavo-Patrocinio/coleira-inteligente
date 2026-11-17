@@ -15,6 +15,9 @@ abstract class SummaryCache {
 
   /// Records with `fromTs <= minute_ts < toTs`, one per minute, oldest first.
   Future<List<MinuteSummary>> range(int fromTs, int toTs);
+
+  /// Removes every record (sign out, account deletion: privacy policy).
+  Future<void> clear();
 }
 
 List<MinuteSummary> _dedupe(Iterable<MinuteSummary> all, int fromTs, int toTs) {
@@ -33,6 +36,8 @@ class MemorySummaryCache implements SummaryCache {
   @override
   Future<List<MinuteSummary>> range(int fromTs, int toTs) async =>
       _dedupe(records, fromTs, toTs);
+  @override
+  Future<void> clear() async => records.clear();
 }
 
 /// One append-only file; trimmed to the last [keepDays] when it grows (~21 KB per day).
@@ -74,5 +79,11 @@ class FileSummaryCache implements SummaryCache {
       fromTs,
       toTs,
     );
+  }
+
+  @override
+  Future<void> clear() async {
+    final f = await _file();
+    if (await f.exists()) await f.delete();
   }
 }

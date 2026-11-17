@@ -129,7 +129,10 @@ jobs:
         run: |
           set -o pipefail
           FW=coleira-inteligente/firmware
-          OTA="-DSB_CONF_FILE=ota/sysbuild.conf -DEXTRA_DTC_OVERLAY_FILE=ota/ota.overlay -DPM_STATIC_YML_FILE=ota/pm_static.yml $SIGN"
+          # image version = the tag (v1.2.3 → 1.2.3+0); the app compares it with the collar's
+          VER=0.0.0
+          case "$GITHUB_REF" in refs/tags/v*) VER="${GITHUB_REF_NAME#v}" ;; esac
+          OTA="-DSB_CONF_FILE=ota/sysbuild.conf -DEXTRA_DTC_OVERLAY_FILE=ota/ota.overlay -DPM_STATIC_YML_FILE=ota/pm_static.yml $SIGN -Dapp_CONFIG_MCUBOOT_IMGTOOL_SIGN_VERSION=\"$VER+0\""
           build() {  # name, source dir, extra cmake args
             west build -p always -b xiao_ble/nrf52840/sense -d build/$1 $FW/$2 -- $3 2>&1 | tee build-$1.log
             # compiler warnings only (board defconfigs print harmless Kconfig notes)
@@ -151,6 +154,7 @@ jobs:
           cp build/app/app/zephyr/zephyr.uf2 dist/collar-debug-log.uf2
           cp build/ota-release/merged.hex dist/collar-ota-first-flash$KEYTAG.hex
           cp build/ota-release/dfu_application.zip dist/collar-ota-update$KEYTAG.zip
+          cp build/ota-release/app/zephyr/zephyr.signed.bin dist/collar-ota-update$KEYTAG.bin
           cp build/ota/merged.hex dist/collar-ota-debug-log-first-flash$KEYTAG.hex
           cp build/ota/dfu_application.zip dist/collar-ota-debug-log-update$KEYTAG.zip
           (cd dist && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt)

@@ -14,7 +14,7 @@ are enough.
 | `collar.uf2` | **The collar firmware.** Recognizes behavior, stores ~13 days, syncs with the app | everyone |
 | `collar-logger.uf2` | Raw-data logger, only for checking a new board (build guide step 3) | builders |
 | `collar-debug-log.uf2` | Same as `collar.uf2` plus a log on the USB serial port | developers |
-| `collar-ota-*.hex` / `.zip` | Wireless-update version (needs an SWD probe once) | developers, see below |
+| `collar-ota-*.hex` / `.bin` / `.zip` | Wireless-update version (needs an SWD probe once) | developers, see below |
 | `SHA256SUMS.txt` | Checksums to confirm the download is intact | optional |
 
 Files that end in `-devkey` are signed with the public development key: fine for the bench,
@@ -55,8 +55,15 @@ Compare the file's SHA-256 with the line in `SHA256SUMS.txt`:
 ## Wireless updates (OTA)
 
 The OTA files replace the board's USB bootloader with MCUboot, so later updates go over
-Bluetooth from the phone (nRF Connect Device Manager). That first step needs an SWD probe (a
-Raspberry Pi Pico works); the steps are in `firmware/app/README.md`, *OTA variant*.
+Bluetooth from the phone: in the collar app, **Collar → Collar firmware → Check for
+updates**. That first step needs an SWD probe (a Raspberry Pi Pico works); the steps are in
+`firmware/app/README.md`, *OTA variant*.
+
+| OTA file | Use |
+|---|---|
+| `collar-ota-first-flash*.hex` | first flash over SWD (MCUboot + firmware) |
+| `collar-ota-update*.bin` | the update the app downloads by itself |
+| `collar-ota-update*.zip` | the same update for nRF Connect Device Manager |
 
 ## For maintainers: making a release
 

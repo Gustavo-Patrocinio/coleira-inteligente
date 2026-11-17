@@ -146,6 +146,8 @@ class AppState extends ChangeNotifier {
     me = null;
     await store.write('token', null);
     await store.write('dog', null);
+    await cache
+        .clear(); // the dog's minutes do not stay on a phone after sign-out
     notifyListeners();
   }
 

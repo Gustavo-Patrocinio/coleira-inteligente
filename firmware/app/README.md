@@ -134,6 +134,14 @@ the collar needs the SWD probe again.
 
 ### Updates over BLE
 
+**From the collar app** (simplest): Collar tab → *Collar firmware* → *Check for updates* →
+*Update to X*. The app downloads `collar-ota-update.bin` from the newest GitHub release,
+uploads it over SMP, marks it for test and restarts the collar (`app/lib/collar/
+firmware_update.dart`, a Dart SMP client tested against a fake collar). The release tag
+(`v1.2.3`) is the image version the app compares with the collar's.
+
+**With Nordic's app** (any image file):
+
 1. On the phone, install **nRF Connect Device Manager** (Nordic, Android/iOS) and copy
    `dfu_application.zip` to it.
 2. Select `Collar` → Image → Upload, choose the file, mode **Test only**.
