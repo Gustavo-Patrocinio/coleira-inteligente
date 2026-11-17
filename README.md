@@ -1,5 +1,7 @@
 # Smart Dog Collar · on-device behavior recognition
 
+[![CI](https://github.com/Gustavo-Patrocinio/coleira-inteligente/actions/workflows/ci.yml/badge.svg)](https://github.com/Gustavo-Patrocinio/coleira-inteligente/actions/workflows/ci.yml)
+
 A dog collar that **recognizes what the dog is doing on the chip itself** (still, walking,
 running, scratching, shaking, and later eating and drinking), learns what is normal for
 *that* dog, and warns the owner when something changes: *"scratched 3× more than usual"*,
@@ -190,6 +192,7 @@ uses real signal, shows the behavior on screen, and simulates clock drift and pa
 | [0011](docs/decisions/0011-daily-baseline-alerts.md) | Alerts on daily totals vs a same-day-type baseline |
 | [0012](docs/decisions/0012-ble-library-license.md) | universal_ble (BSD-3) instead of flutter_blue_plus (paid commercial license) |
 | [0013](docs/decisions/0013-summary-sync-protocol.md) | Per-minute storage in flash and the BLE sync protocol |
+| [0014](docs/decisions/0014-raw-dump-mode.md) | Raw dump mode in the collar firmware (collect data without reflashing) |
 
 ---
 

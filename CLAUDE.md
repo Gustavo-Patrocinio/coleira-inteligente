@@ -151,6 +151,8 @@ Size: 8 + 120 = 128 bytes → requires MTU ≥ 131.
 GATT (ADR 0010): service `c01a0000-7e3b-4c5e-9d2a-5f1e8b6a2c10`, notify characteristic
 `c01a0001-7e3b-4c5e-9d2a-5f1e8b6a2c10`, advertised name `Collar-Logger`. Sampling: IMU at
 104 Hz read by a 20 ms MCU timer (≈ 50.03 Hz on the MCU crystal).
+The collar firmware serves the same service as raw dump mode, streaming while a client is
+subscribed (ADR 0014).
 
 The app stores each packet with its receive `phone_ts`. Inside a packet, sample i's time =
 `device_ms` + i × 20 ms. Across packets an exact ODR is **not** assumed: the real rate is
@@ -325,10 +327,10 @@ the author's dog **and at least 4 other dogs** of different sizes (ADR 0009).
 - [ ] MCUboot + BLE DFU (OTA) working **before** everything else (flash MCUboot via SWD, since the XIAO ships with Adafruit's UF2 bootloader)
 - [x] Per-minute summary (section 4.7) written to flash: FCB on a 416 KB partition, ~13 days (ADR 0013; `firmware/app`, builds, not run on a board yet)
 - [x] BLE sync service: the client asks "since minute X" and receives the batch (contract 4.8; PC client `ml/scripts/sync_ble.py` emulates the base station and uploads)
-- [ ] Raw dump mode, enabled from the app (to keep collecting dataset)
+- [x] Raw dump mode, enabled from the app (to keep collecting dataset): the collar firmware serves the logger's raw service while subscribed; the app's collection mode finds either firmware (ADR 0014; builds, not run on a board yet)
 - [x] Clock: the client sends the current time on connect; the collar keeps it (2 h RAM buffer stamped retroactively)
 - [x] App side of the sync: pair the collar (registers the device, keeps its token), "Sync now" fetches since X and uploads via `api.ingest` (tested with a fake collar; caught a status-before-data race)
-- [x] App: daily routine screen (timeline per class + Exercise, Sleep and Skin indicators; see `docs/product/indicators.md`); [ ] sync on open
+- [x] App: daily routine screen (timeline per class + Exercise, Sleep and Skin indicators; see `docs/product/indicators.md`); sync on open and on return to the foreground (throttled); offline day from records kept on the phone
 - [ ] First power measurement with PPK2 → `docs/energy-budget.md`
 
 **Done when:** 24 h in a row recorded wirelessly, sync with no loss or duplicates, OTA tested.

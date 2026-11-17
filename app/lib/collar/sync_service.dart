@@ -9,6 +9,7 @@ import '../api/api_client.dart';
 import '../core/summary_record.dart';
 import '../core/sync_protocol.dart';
 import '../ui/app_state.dart';
+import 'summary_cache.dart';
 
 /// The BLE operations a sync needs (implemented by UniversalBleSyncTransport).
 abstract class SyncTransport {
@@ -25,11 +26,17 @@ class SyncResult {
     required this.inserted,
     required this.duplicates,
     required this.newestMinute,
+    this.uploadError,
   });
   final int records;
   final int inserted;
   final int duplicates;
   final int? newestMinute;
+
+  /// Set when the records were fetched (and kept on the phone) but could not be uploaded;
+  /// the next sync asks the collar for them again.
+  final Object? uploadError;
+  bool get uploaded => uploadError == null;
 }
 
 class SyncService {
@@ -37,12 +44,14 @@ class SyncService {
     required this.transport,
     required this.api,
     required this.store,
+    this.cache,
     int Function()? nowS,
   }) : _nowS = nowS ?? (() => DateTime.now().millisecondsSinceEpoch ~/ 1000);
 
   final SyncTransport transport;
   final CollarApi api;
   final SessionStore store;
+  final SummaryCache? cache;
   final int Function() _nowS;
 
   static String _sinceKey(String collarId) => 'sync_since_$collarId';
@@ -105,7 +114,21 @@ class SyncService {
       );
     }
     final all = Uint8List.fromList([for (final r in records) ...r]);
-    final res = await api.ingest(deviceToken, all, via: 'app');
+    await cache?.add(
+      all,
+    ); // the day shows on this phone even if the upload fails
+    final IngestResult res;
+    try {
+      res = await api.ingest(deviceToken, all, via: 'app');
+    } catch (e) {
+      return SyncResult(
+        records: records.length,
+        inserted: 0,
+        duplicates: 0,
+        newestMinute: null,
+        uploadError: e,
+      );
+    }
     final newest = decodeSummaries(all)
         .map((r) => r.minuteTs)
         .fold<int>(0, (a, b) => b > a ? b : a);

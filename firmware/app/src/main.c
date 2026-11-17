@@ -7,7 +7,8 @@
  *                     → one line per second on the log, plus a per-minute summary
  *
  * Phase 3: each smoothed second also feeds the per-minute summary (contract 4.7), stored in
- * flash and served over the BLE sync service (contract 4.8, ADR 0013).
+ * flash and served over the BLE sync service (contract 4.8, ADR 0013). Raw dump mode
+ * (ADR 0014) streams contract 4.4 packets while the phone's collection mode is subscribed.
  */
 #include <string.h>
 
@@ -20,6 +21,7 @@
 #include "model/model_config.h"
 #include "model_runner.h"
 #include "preprocess.h"
+#include "raw_stream.h"
 #include "smoothing.h"
 #include "summary_builder.h"
 #include "summary_store.h"
@@ -82,7 +84,7 @@ static void sampler_thread(void *a, void *b, void *c)
 
 	static struct sample_ring ring;
 	struct k_timer timer;
-	struct imu_sample s;
+	struct imu_sample s, last = {0};
 	int since_step = 0;
 
 	ring_init(&ring);
@@ -92,8 +94,10 @@ static void sampler_thread(void *a, void *b, void *c)
 	for (;;) {
 		k_timer_status_sync(&timer);
 		if (imu_read(&s) != 0) {
-			continue; /* keep the previous samples; rare I2C hiccups */
+			s = last; /* rare I2C hiccup: repeat the previous sample, keep timing intact */
 		}
+		last = s;
+		raw_stream_push(&s); /* raw dump mode (ADR 0014), no-op unless subscribed */
 		ring_push(&ring, s.v);
 		if (ring_full(&ring) && ++since_step >= STEP_SAMPLES) {
 			since_step = 0;
@@ -210,6 +214,7 @@ int main(void)
 		LOG_ERR("summary storage failed (%d)", err);
 		return err;
 	}
+	raw_stream_init();
 	err = ble_sync_init(on_time);
 	if (err) {
 		LOG_ERR("bluetooth failed (%d)", err);

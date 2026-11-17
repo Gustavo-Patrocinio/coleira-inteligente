@@ -18,7 +18,9 @@ target_sources(app PRIVATE
   src/summary_builder.c
   src/summary_store.c
   src/ble_sync.c
+  src/raw_stream.c
   src/model_runner.cc
   src/model/model_data.c
   ${COMMON}/imu.c
+  ${COMMON}/packet.c
 )

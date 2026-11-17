@@ -19,8 +19,9 @@ class FoundCollar {
 }
 
 abstract class CollarLink {
-  /// Collars advertising `serviceUuid` (raw logger by default, ADR 0010; sync: ADR 0013).
-  Stream<FoundCollar> scan({String serviceUuid = rawServiceUuid});
+  /// Collars advertising any of `services` (raw logger by default, ADR 0010; normal collar
+  /// firmware: sync service, ADR 0013, which also serves raw dump mode, ADR 0014).
+  Stream<FoundCollar> scan({List<String> services = const [rawServiceUuid]});
   Future<void> stopScan();
 
   /// Connects, asks for a large MTU and subscribes to raw packets. Returns the MTU.
@@ -33,13 +34,11 @@ class UniversalBleCollarLink implements CollarLink {
   final _found = StreamController<FoundCollar>.broadcast();
 
   @override
-  Stream<FoundCollar> scan({String serviceUuid = rawServiceUuid}) {
+  Stream<FoundCollar> scan({List<String> services = const [rawServiceUuid]}) {
     UniversalBle.onScanResult = (d) =>
         _found.add(FoundCollar(d.deviceId, d.name ?? loggerName, d.rssi));
     unawaited(
-      UniversalBle.startScan(
-        scanFilter: ScanFilter(withServices: [serviceUuid]),
-      ),
+      UniversalBle.startScan(scanFilter: ScanFilter(withServices: services)),
     );
     return _found.stream;
   }

@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:collar_app/api/api_client.dart';
 import 'package:collar_app/collar/collar_link.dart';
+import 'package:collar_app/collar/summary_cache.dart';
 import 'package:collar_app/collar/sync_service.dart';
 
 import 'dart:typed_data';
@@ -16,7 +17,8 @@ import 'package:material_ui/material_ui.dart';
 
 class _NoBle implements CollarLink {
   @override
-  Stream<FoundCollar> scan({String serviceUuid = ''}) => const Stream.empty();
+  Stream<FoundCollar> scan({List<String> services = const []}) =>
+      const Stream.empty();
   @override
   Future<void> stopScan() async {}
   @override
@@ -91,6 +93,7 @@ void main() {
     final state = AppState(
       store: MemorySessionStore(),
       apiFactory: (u) => CollarApi(baseUrl: u, client: backend),
+      cache: MemorySummaryCache(),
     );
     await state.restore();
     await tester.pumpWidget(

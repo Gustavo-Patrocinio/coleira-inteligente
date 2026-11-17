@@ -2,6 +2,7 @@
 library;
 
 import '../core/contracts.dart';
+import '../core/summary_record.dart';
 import 'api_client.dart';
 
 const _classColumns = {
@@ -49,4 +50,67 @@ String formatDuration(int seconds) {
   final m = (seconds / 60).round();
   if (m < 60) return '$m min';
   return '${m ~/ 60}h${(m % 60).toString().padLeft(2, '0')}';
+}
+
+const _columnsById = [
+  'still_s',
+  'walking_s',
+  'running_s',
+  'scratching_s',
+  'shaking_s',
+  'eating_s',
+  'drinking_s',
+];
+
+/// The day view built on the phone from synced records, for when the server is unreachable.
+/// Same shape as the backend's (15-minute blocks + totals); night wake-ups stay with the
+/// server, which has the whole history.
+DayView dayFromRecords(String day, List<MinuteSummary> records) {
+  final blocks = <int, Map<String, int>>{};
+  final minutes = <int, int>{};
+  final totals = {
+    for (final c in [..._columnsById, 'unknown_s']) c: 0,
+  };
+  for (final r in records) {
+    final start = r.minuteTs - r.minuteTs % 900;
+    final b = blocks.putIfAbsent(
+      start,
+      () => {for (final c in totals.keys) c: 0},
+    );
+    minutes[start] = (minutes[start] ?? 0) + 1;
+    for (var i = 0; i < 7; i++) {
+      b[_columnsById[i]] = b[_columnsById[i]]! + r.seconds[i];
+      totals[_columnsById[i]] = totals[_columnsById[i]]! + r.seconds[i];
+    }
+    b['unknown_s'] = b['unknown_s']! + r.unknownS;
+    totals['unknown_s'] = totals['unknown_s']! + r.unknownS;
+  }
+  final starts = blocks.keys.toList()..sort();
+  return DayView(
+    day: day,
+    totals: totals,
+    blocks: [
+      for (final s in starts)
+        DayBlock(
+          start: DateTime.fromMillisecondsSinceEpoch(s * 1000, isUtc: true),
+          minutes: minutes[s]!,
+          secondsByClass: blocks[s]!,
+        ),
+    ],
+  );
+}
+
+/// Epoch-second bounds [start, end) of a local calendar day ('YYYY-MM-DD').
+(int, int) dayBounds(String day, Duration localOffset) {
+  final midnightUtc = DateTime.parse('${day}T00:00:00Z').subtract(localOffset);
+  final s = midnightUtc.millisecondsSinceEpoch ~/ 1000;
+  return (s, s + 86400);
+}
+
+String formatAgo(DateTime t, {DateTime? now}) {
+  final m = (now ?? DateTime.now()).difference(t).inMinutes;
+  if (m < 1) return 'just now';
+  if (m < 60) return '$m min ago';
+  if (m < 48 * 60) return '${m ~/ 60} h ago';
+  return '${m ~/ 1440} days ago';
 }

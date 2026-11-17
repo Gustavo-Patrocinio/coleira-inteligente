@@ -25,6 +25,7 @@ from pathlib import Path
 from bleak import BleakClient, BleakScanner
 
 from coleira_ml import raw_packet as rp
+from coleira_ml import sync_protocol as sp
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -33,8 +34,9 @@ async def find_logger(timeout: float):
     print(f"scanning for {rp.DEVICE_NAME} ({timeout:.0f} s)...")
     dev = await BleakScanner.find_device_by_filter(
         lambda d, adv: (
-            rp.SERVICE_UUID in [u.lower() for u in adv.service_uuids]
-            or (d.name or "") == rp.DEVICE_NAME
+            # logger firmware, or the collar firmware in raw dump mode (ADR 0014)
+            bool({rp.SERVICE_UUID, sp.SERVICE_UUID} & {u.lower() for u in adv.service_uuids})
+            or (d.name or "") in (rp.DEVICE_NAME, sp.DEVICE_NAME)
         ),
         timeout=timeout,
     )

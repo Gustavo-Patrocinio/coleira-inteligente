@@ -5,7 +5,10 @@ One codebase for iPhone and Android:
 - **Today / Trends / Alerts** from the backend: 24 h timeline, Exercise, Sleep (night
   wake-ups) and Skin (scratching) indicators, daily trends, alerts in plain language with
   "made sense / false alarm" feedback (docs/product/indicators.md).
-- **Collection mode** (Phase 1): connects to the collar logger over BLE, films the dog and
+- **Sync** (contract 4.8): pairs the collar and syncs on its own whenever the app opens near
+  it; the records stay on the phone too, so Today works offline.
+- **Collection mode** (Phase 1): connects to the collar (logger firmware, or the normal
+  firmware in raw dump mode, ADR 0014) over BLE, films the dog and
   writes `imu.csv` + `meta.json` (contracts 4.4–4.5, ADR 0003) at the same time, then shares
   the session folder to your computer for the labeler.
 
@@ -24,7 +27,7 @@ Screens follow the clickable prototype (`docs/product/app-prototype/`).
 
 ```bash
 flutter analyze
-flutter test        # 19 tests, no device needed
+flutter test        # 22 tests, no device needed
 ```
 
 ## Run on your iPhone (from the MacBook)
@@ -50,9 +53,10 @@ allowed for the local network (iOS `NSAllowsLocalNetworking`); a public server m
 
 ## Status
 
-- [x] `flutter analyze` clean, 19 tests passing (2026-11-17)
+- [x] `flutter analyze` clean, 22 tests passing (2026-11-17)
 - [ ] Collection mode tested with the real collar logger (needs the XIAO)
 - [ ] Installed on an iPhone and an Android phone
-- [x] Phase 3 sync (contract 4.8): pair collar, "Sync now", upload via `api.ingest` (19 tests)
-- [ ] Offline day view from synced records; automatic sync when the app opens
+- [x] Phase 3 sync (contract 4.8): pair collar, "Sync now", upload via `api.ingest` (22 tests)
+- [x] Automatic sync when the app opens / returns to the foreground (throttled to 10 min);
+      records kept on the phone so Today works offline and failed uploads are retried
 - [ ] Phase 4: push notifications, base-station Wi-Fi provisioning, consent screen (LGPD)

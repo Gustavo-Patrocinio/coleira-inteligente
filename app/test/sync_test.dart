@@ -3,7 +3,13 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:collar_app/api/api_client.dart';
+
+import 'dart:io';
+
+import 'package:collar_app/api/day_summary.dart';
+import 'package:collar_app/collar/summary_cache.dart';
 import 'package:collar_app/collar/sync_service.dart';
+import 'package:collar_app/core/contracts.dart';
 import 'package:collar_app/core/summary_record.dart';
 import 'package:collar_app/core/sync_protocol.dart';
 import 'package:collar_app/ui/app_state.dart';
@@ -141,5 +147,113 @@ void main() {
     );
     expect(second.records, 0);
     expect(uploads, hasLength(1)); // nothing to upload
+  });
+
+  test(
+    'upload failure keeps the records on the phone and retries them next time',
+    () async {
+      final collar = FakeCollar(records(5));
+      var online = false;
+      final api = CollarApi(
+        baseUrl: Uri.parse('http://server'),
+        client: MockClient((req) async {
+          if (!online) throw const SocketException('no route to host');
+          final n =
+              base64Decode(jsonDecode(req.body)['records'] as String).length ~/
+              15;
+          return http.Response(
+            jsonEncode({
+              'received': n,
+              'inserted': n,
+              'duplicates': 0,
+              'rejected': [],
+            }),
+            200,
+          );
+        }),
+      );
+      final cache = MemorySummaryCache();
+      final sync = SyncService(
+        transport: collar,
+        api: api,
+        store: MemorySessionStore(),
+        cache: cache,
+      );
+
+      final offline = await sync.syncAndUpload('AA:BB', 'dev_token');
+      expect(offline.uploaded, isFalse);
+      expect(await cache.range(t0, t0 + 3600), hasLength(5)); // visible offline
+
+      online = true;
+      final retry = await sync.syncAndUpload('AA:BB', 'dev_token');
+      expect(retry.records, 5); // asked for the same minutes again
+      expect(retry.uploaded, isTrue);
+      expect(
+        await cache.range(t0, t0 + 3600),
+        hasLength(5),
+      ); // no duplicates on reads
+    },
+  );
+
+  test('offline day: 15-minute blocks and totals from local records', () {
+    // 2027-01-15 00:00 in Brazil (UTC-3) = 03:00 UTC
+    const offset = Duration(hours: -3);
+    final (from, to) = dayBounds('2027-01-15', offset);
+    expect(to - from, 86400);
+    expect(
+      DateTime.fromMillisecondsSinceEpoch(from * 1000, isUtc: true).hour,
+      3,
+    );
+
+    final recs = decodeSummaries(
+      encodeSummaries([
+        for (
+          var i = 0;
+          i < 30;
+          i++
+        ) // 00:00–00:29 local: walking, then scratching
+          MinuteSummary(
+            minuteTs: from + 60 * i,
+            seconds: i < 15
+                ? const [0, 60, 0, 0, 0, 0, 0]
+                : const [0, 0, 0, 0, 0, 0, 0],
+            unknownS: 0,
+            batteryPct: 0,
+            flags: 1,
+          ),
+      ]),
+    );
+    final scratchy = [
+      ...recs.take(15),
+      for (final r in recs.skip(15))
+        MinuteSummary(
+          minuteTs: r.minuteTs,
+          seconds: const [50, 0, 0, 10, 0, 0, 0],
+          unknownS: 0,
+          batteryPct: 0,
+          flags: 1,
+        ),
+    ];
+    final day = dayFromRecords('2027-01-15', scratchy);
+    expect(day.blocks, hasLength(2));
+    expect(day.totals['walking_s'], 15 * 60);
+    expect(day.totals['scratching_s'], 150);
+    final slots = timelineSlots(day, offset);
+    expect(slots[0], Behavior.walking);
+    expect(
+      slots[1],
+      Behavior.scratching,
+    ); // 150 s of scratching ≥ 60 s in the block
+    expect(slots[2], isNull);
+  });
+
+  test('cache file survives a partial record and trims old days', () async {
+    final dir = await Directory.systemTemp.createTemp('collar_cache');
+    final cache = FileSummaryCache(keepDays: 1, dir: () async => dir);
+    await cache.add(records(3));
+    await File('${dir.path}/summaries.bin')
+        .writeAsBytes([1, 2, 3], mode: FileMode.append);
+    expect(await cache.range(t0, t0 + 3600), hasLength(3));
+    await dir.delete(recursive: true);
   });
 }

@@ -93,5 +93,5 @@ The SWD probe (Raspberry Pi Pico) is only needed later for debugging and for MCU
 | `src/main.c` | sampler thread (20 ms timer → 10-sample packets → queue) and sender thread (queue → BLE) |
 | `src/imu.c` | IMU through Zephyr's sensor API, converted to int16 at ±16 g / ±2000 dps |
 | `src/ble_raw.c` | advertising, GATT service, MTU/PHY/connection-interval requests, notify |
-| `src/packet.c` | packs contract 4.4 packets (mirrored and tested in `ml/src/coleira_ml/raw_packet.py`) |
+| `../common/src/packet.c` | packs contract 4.4 packets (mirrored and tested in `ml/src/coleira_ml/raw_packet.py`) |
 | `prj.conf` / `release.conf` | Kconfig for development / release |

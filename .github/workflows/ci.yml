@@ -1,0 +1,135 @@
+# Runs every test suite on each push and pull request. No hardware involved: the firmware is
+# built (not flashed) and its C logic is tested on the host (ml/tests/test_firmware_host.py).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ml:
+    name: ML (ruff + pytest, firmware C logic via zig)
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: ml
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run pytest -q
+
+  backend:
+    name: Backend (typecheck + tests on TimescaleDB)
+    runs-on: ubuntu-24.04
+    services:
+      db:
+        image: timescale/timescaledb:2.17.2-pg16
+        env:
+          POSTGRES_USER: collar
+          POSTGRES_PASSWORD: collar
+          POSTGRES_DB: collar
+        ports: ["54329:5432"]
+        options: >-
+          --health-cmd "pg_isready -U collar" --health-interval 2s --health-retries 30
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+  app:
+    name: App (flutter analyze + test)
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.50.0
+          cache: true
+      - run: flutter pub get
+      - run: dart format --output=none --set-exit-if-changed lib test
+      - run: flutter analyze
+      - run: flutter test
+
+  labeler:
+    name: Labeler (node --test)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --test tools/labeler/test/
+
+  firmware:
+    name: Firmware (NCS v2.9.0 build, 0 warnings)
+    runs-on: ubuntu-24.04
+    container: ghcr.io/nrfconnect/sdk-nrf-toolchain:v2.9.0
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: coleira-inteligente
+      - name: Cache the west workspace (SDK, Zephyr, modules)
+        uses: actions/cache@v4
+        with:
+          path: |
+            nrf
+            zephyr
+            modules
+            bootloader
+            nrfxlib
+            test
+            tools
+          key: west-${{ hashFiles('coleira-inteligente/firmware/west.yml') }}
+      - name: West init + update (pinned by firmware/west.yml)
+        run: |
+          [ -d .west ] || west init -l coleira-inteligente --mf firmware/west.yml
+          west update --narrow -o=--depth=1
+      - name: Build logger and app (debug and release)
+        run: |
+          set -o pipefail
+          B="west build -p always -b xiao_ble/nrf52840/sense"
+          for target in "logger" "app" "app release"; do
+            set -- $target
+            dir=coleira-inteligente/firmware/$1
+            extra=""
+            [ "${2:-}" = release ] && extra="-DEXTRA_CONF_FILE=release.conf"
+            $B -d build/$1${2:+-$2} $dir -- $extra 2>&1 | tee build-$1${2:+-$2}.log
+            # compiler warnings only (the release Kconfig prints a harmless board-defconfig note)
+            if grep -nE "\.(c|cc|cpp|h):[0-9]+:[0-9]+: warning:" build-$1${2:+-$2}.log; then
+              echo "::error::compiler warnings in $target"; exit 1
+            fi
+            grep -E "FLASH:|RAM:" build-$1${2:+-$2}.log
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firmware-uf2
+          path: build/*/*/zephyr/zephyr.uf2
+          if-no-files-found: warn

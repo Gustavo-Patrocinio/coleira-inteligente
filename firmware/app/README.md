@@ -16,6 +16,9 @@ IMU 50 Hz → ring buffer (last 2 s) → every 1 s: int8 preprocessing → CNN �
   (`boards/xiao_ble_nrf52840_sense.overlay`); when full, the oldest sector goes.
   `sysbuild.conf` turns off NCS's Partition Manager so the devicetree layout (UF2 bootloader)
   is used; MCUboot (OTA) will redo the layout.
+- **Raw dump mode** (`src/raw_stream.c`, ADR 0014): also serves the logger's raw service;
+  while the phone's collection mode (or `ml/scripts/record_ble.py`) is subscribed it streams
+  contract 4.4 packets, and recognition keeps running.
 - **BLE sync** (`src/ble_sync.c`): advertises `Collar`; Time / Control / Data / Status
   characteristics. PC client: `ml/scripts/sync_ble.py` (acts as the home base station and
   uploads to the backend).
@@ -41,6 +44,8 @@ IMU 50 Hz → ring buffer (last 2 s) → every 1 s: int8 preprocessing → CNN �
 - [x] Phase 3 additions build with 0 warnings (2026-11-17): FLASH 301 KB of the 404 KB code
       partition (firmware ends at 0x7260C, storage starts at 0x8C000), RAM 80 KB; summary
       builder host-tested (clock from start, clock set later, clock correction, gaps)
+- [x] Raw dump mode builds with 0 compiler warnings (2026-11-17): 303 KB flash, 85 KB RAM
+      (release build: 262 KB, 74 KB)
 - [ ] Runs on the board: boot log shows `model ready ... arena used X of 16384`
 - [ ] Storage survives reboots; sync with `ml/scripts/sync_ble.py --dry-run` returns the stored minutes
 - [ ] 24 h on battery with sync and no gaps/duplicates (Phase 3 done criterion)

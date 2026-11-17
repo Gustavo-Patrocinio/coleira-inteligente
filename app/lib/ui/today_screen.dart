@@ -24,9 +24,26 @@ class _TodayScreenState extends State<TodayScreen> {
     return '${n.year}-${n.month.toString().padLeft(2, '0')}-${n.day.toString().padLeft(2, '0')}';
   }
 
-  Future<DayView> _fetch() {
+  int _seenVersion = -1;
+  bool _offline = false;
+
+  /// Server first; if it is unreachable, the day from records synced to this phone.
+  Future<DayView> _fetch() async {
     final s = AppScope.of(context);
-    return s.api!.day(s.dog!.id, _today());
+    final day = _today();
+    try {
+      final v = await s.api!.day(s.dog!.id, day);
+      _offline = false;
+      return v;
+    } on ApiException {
+      rethrow; // the server answered: a real error, not a connectivity problem
+    } catch (e) {
+      final (from, to) = dayBounds(day, _localOffset);
+      final local = await s.cache.range(from, to);
+      if (local.isEmpty) rethrow;
+      _offline = true;
+      return dayFromRecords(day, local);
+    }
   }
 
   void _load() => setState(() {
@@ -36,7 +53,12 @@ class _TodayScreenState extends State<TodayScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _day ??= _fetch(); // first load: no setState needed during dependencies
+    // first load, and again whenever a sync brought new records (no setState needed here)
+    final v = AppScope.of(context).dataVersion;
+    if (_day == null || v != _seenVersion) {
+      _seenVersion = v;
+      _day = _fetch();
+    }
   }
 
   @override
@@ -65,6 +87,17 @@ class _TodayScreenState extends State<TodayScreen> {
             return ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                if (_offline)
+                  const Card(
+                    child: ListTile(
+                      leading: Icon(Icons.cloud_off),
+                      title: Text('Offline'),
+                      subtitle: Text(
+                        'Showing what this phone synced from the collar. Trends and '
+                        'alerts come back with the connection.',
+                      ),
+                    ),
+                  ),
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16),

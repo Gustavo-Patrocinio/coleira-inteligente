@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import '../api/api_client.dart';
 import '../collar/collar_link.dart';
 import '../collar/sync_service.dart';
+import '../api/day_summary.dart';
 import '../collection/collection_screen.dart';
 import '../core/sync_protocol.dart';
 import 'app_state.dart';
@@ -20,7 +21,6 @@ class CollarScreen extends StatefulWidget {
 
 class _CollarScreenState extends State<CollarScreen> {
   String? _paired;
-  String? _token;
   bool _busy = false;
   String? _message;
   final List<FoundCollar> _found = [];
@@ -41,11 +41,9 @@ class _CollarScreenState extends State<CollarScreen> {
   Future<void> _loadPairing() async {
     final store = AppScope.of(context).store;
     final paired = await store.read('paired_collar');
-    final token = await store.read('device_token');
     if (mounted) {
       setState(() {
         _paired = paired;
-        _token = token;
       });
     }
   }
@@ -56,7 +54,7 @@ class _CollarScreenState extends State<CollarScreen> {
       _message = 'Looking for the collar…';
     });
     _scan?.cancel();
-    _scan = widget.link.scan(serviceUuid: syncServiceUuid).listen((c) {
+    _scan = widget.link.scan(services: const [syncServiceUuid]).listen((c) {
       if (_found.every((f) => f.id != c.id)) setState(() => _found.add(c));
     });
     Future.delayed(const Duration(seconds: 12), () async {
@@ -79,7 +77,6 @@ class _CollarScreenState extends State<CollarScreen> {
       await s.store.write('device_token', token);
       setState(() {
         _paired = c.id;
-        _token = token;
         _found.clear();
         _message = 'Collar paired with ${s.dog!.name}.';
       });
@@ -92,26 +89,13 @@ class _CollarScreenState extends State<CollarScreen> {
 
   Future<void> _syncNow() async {
     final s = AppScope.of(context);
-    setState(() {
-      _busy = true;
-      _message = 'Syncing…';
-    });
+    setState(() => _message = 'Syncing…');
     try {
-      final r = await SyncService(
-        transport: widget.sync,
-        api: s.api!,
-        store: s.store,
-      ).syncAndUpload(_paired!, _token!);
-      setState(
-        () => _message = r.records == 0
-            ? 'Already up to date.'
-            : 'Synced ${r.records} minutes (${r.inserted} new, ${r.duplicates} already on the server).',
-      );
-    } catch (e) {
-      setState(() => _message = 'Sync failed: $e');
-    } finally {
-      if (mounted) setState(() => _busy = false);
+      await s.syncCollar(widget.sync);
+    } catch (_) {
+      // the message is in s.lastSyncMessage
     }
+    if (mounted) setState(() => _message = s.lastSyncMessage);
   }
 
   @override
@@ -139,8 +123,14 @@ class _CollarScreenState extends State<CollarScreen> {
                     ),
                   const SizedBox(height: 8),
                   const Text(
-                    'At home the base station syncs on its own. Away from home, sync here.',
+                    'At home the base station syncs on its own. Away from home, this phone '
+                    'syncs whenever you open the app near the collar.',
                   ),
+                  if (s.lastSyncAt != null)
+                    Text(
+                      'Last synced ${formatAgo(s.lastSyncAt!)}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                   const SizedBox(height: 12),
                   if (_paired == null)
                     FilledButton.icon(
@@ -150,9 +140,9 @@ class _CollarScreenState extends State<CollarScreen> {
                     )
                   else
                     FilledButton.icon(
-                      onPressed: _busy ? null : _syncNow,
+                      onPressed: _busy || s.syncing ? null : _syncNow,
                       icon: const Icon(Icons.sync),
-                      label: const Text('Sync now'),
+                      label: Text(s.syncing ? 'Syncing…' : 'Sync now'),
                     ),
                   for (final c in _found)
                     ListTile(

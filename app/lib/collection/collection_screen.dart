@@ -11,6 +11,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../collar/collar_link.dart';
+import '../core/contracts.dart';
+import '../core/sync_protocol.dart';
 import 'session_recorder.dart';
 
 class CollectionScreen extends StatefulWidget {
@@ -48,9 +50,12 @@ class _CollectionScreenState extends State<CollectionScreen> {
       _status = 'Scanning for the collar…';
     });
     await _scanSub?.cancel();
-    _scanSub = widget.link.scan().listen((c) {
-      if (_found.every((f) => f.id != c.id)) setState(() => _found.add(c));
-    });
+    // logger firmware or the normal collar firmware in raw dump mode (ADR 0014)
+    _scanSub = widget.link
+        .scan(services: const [rawServiceUuid, syncServiceUuid])
+        .listen((c) {
+          if (_found.every((f) => f.id != c.id)) setState(() => _found.add(c));
+        });
     Future.delayed(const Duration(seconds: 15), () async {
       await widget.link.stopScan();
       if (mounted) {

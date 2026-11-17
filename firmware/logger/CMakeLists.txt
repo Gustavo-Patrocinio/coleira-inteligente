@@ -10,6 +10,6 @@ target_include_directories(app PRIVATE src ${COMMON})
 target_sources(app PRIVATE
   src/main.c
   src/ble_raw.c
-  src/packet.c
+  ${COMMON}/packet.c
   ${COMMON}/imu.c
 )
