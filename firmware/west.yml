@@ -1,0 +1,22 @@
+# West manifest: pins the nRF Connect SDK version for every firmware in this repo.
+#
+# The SDK (several GB) lives NEXT TO the repo, never inside it:
+#
+#   mkdir collar-ws && cd collar-ws
+#   git clone https://github.com/Gustavo-Patrocinio/coleira-inteligente.git
+#   west init -l coleira-inteligente --mf firmware/west.yml
+#   west update
+#
+# Bump the revision deliberately (and note it in the commit), never float on main.
+manifest:
+  remotes:
+    - name: ncs
+      url-base: https://github.com/nrfconnect
+  projects:
+    - name: nrf
+      remote: ncs
+      repo-path: sdk-nrf
+      revision: v2.9.0
+      import: true
+  self:
+    path: coleira-inteligente

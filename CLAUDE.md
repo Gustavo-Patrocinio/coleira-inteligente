@@ -148,6 +148,10 @@ IDs are **never** reused or reordered. A new class gets a new ID.
 
 Size: 8 + 120 = 128 bytes → requires MTU ≥ 131.
 
+GATT (ADR 0010): service `c01a0000-7e3b-4c5e-9d2a-5f1e8b6a2c10`, notify characteristic
+`c01a0001-7e3b-4c5e-9d2a-5f1e8b6a2c10`, advertised name `Collar-Logger`. Sampling: IMU at
+104 Hz read by a 20 ms MCU timer (≈ 50.03 Hz on the MCU crystal).
+
 The app stores each packet with its receive `phone_ts`. Inside a packet, sample i's time =
 `device_ms` + i × 20 ms. Across packets an exact ODR is **not** assumed: the real rate is
 estimated by regression on `device_ms`, and video alignment uses taps at the start and at
@@ -254,7 +258,7 @@ the author's dog **and at least 4 other dogs** of different sizes (ADR 0009).
 - [ ] 3.7 V ~250 mAh LiPo with protection (PCM), soldered to the BAT+/BAT− pads under the XIAO (the board has no JST connector)
 - [ ] Provisional 3D-printed case, with the orientation marked
 
-**Firmware `firmware/logger/`:**
+**Firmware `firmware/logger/`** (code written 2026-11-16 before the hardware arrived, ADR 0010; not built or run yet; see its README status list. PC recorder: `ml/scripts/record_ble.py`):
 - [ ] Read the IMU at 50 Hz (Zephyr driver; check the board's exact IMU model)
 - [ ] Custom GATT service, notify characteristic, section 4.4 packet
 - [ ] MTU ≥ 131 negotiation (+ Data Length Extension); `seq` counter to detect loss
@@ -446,5 +450,5 @@ from the production design, with a cost per unit that allows selling it.
 
 - **Current phase:** 1 (Phase 0 completed 2026-11-16)
 - **Goal:** open project for any dog first, product later (ADR 0009)
-- **Next task:** logger firmware (`firmware/logger/`) while the hardware ships; protocol, labeling guide and consent template are written
+- **Next task:** when the XIAO arrives: install NCS v2.9.0, build and flash `firmware/logger`, verify with `ml/scripts/record_ble.py` (README status list); meanwhile, the Flutter collection app
 - **Hardware:** XIAO nRF52840 Sense + Raspberry Pi Pico H ordered (AliExpress, ETA Nov 27 – Dec 4, 2026); battery, jumpers and soldering kit to buy locally
