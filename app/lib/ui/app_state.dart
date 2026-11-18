@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -60,8 +61,17 @@ class AppState extends ChangeNotifier {
 
   CollarApi? api;
   String server = defaultServer;
-  Dog? dog;
+  Dog? dog; // the dog the screens show
+  List<Dog> dogs = [];
   Me? me;
+
+  /// Collars paired from this phone, any of the account's dogs. Each keeps its own upload
+  /// token (contract 4.8 sync runs per collar).
+  List<PairedCollar> collars = [];
+  List<PairedCollar> get dogCollars => [
+    for (final c in collars)
+      if (c.dogId == dog?.id) c,
+  ];
 
   /// Set after the dog is created, so onboarding offers to pair the collar once.
   bool pairStepPending = false;
@@ -81,6 +91,7 @@ class AppState extends ChangeNotifier {
   Future<void> restore() async {
     server = await store.read('server') ?? defaultServer;
     api = _apiFactory(Uri.parse(server))..token = await store.read('token');
+    await _loadCollars();
     if (loggedIn) {
       try {
         await _pickDog();
@@ -114,10 +125,46 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> createDog(String name) async {
-    dog = await api!.createDog(name);
-    await store.write('dog', '${dog!.id}');
-    pairStepPending = await store.read('paired_collar') == null;
+  /// Adds a dog to the account and shows it. After onboarding's first dog, offers pairing.
+  Future<void> createDog(DogProfile profile) async {
+    final created = await api!.createDog(profile);
+    dogs = [...dogs, created];
+    await selectDog(created);
+    pairStepPending = dogCollars.isEmpty && dogs.length == 1;
+    notifyListeners();
+  }
+
+  Future<void> updateDog(Dog d, DogProfile profile) async {
+    final updated = await api!.updateDog(d.id, profile);
+    dogs = [for (final x in dogs) x.id == d.id ? updated : x];
+    if (dog?.id == d.id) dog = updated;
+    notifyListeners();
+  }
+
+  /// Deletes the dog and its data on the server; its collars on this phone are forgotten.
+  Future<void> deleteDog(Dog d) async {
+    await api!.deleteDog(d.id);
+    dogs = [
+      for (final x in dogs)
+        if (x.id != d.id) x,
+    ];
+    collars = [
+      for (final c in collars)
+        if (c.dogId != d.id) c,
+    ];
+    await _saveCollars();
+    if (dog?.id == d.id) {
+      dog = dogs.firstOrNull;
+      await store.write('dog', dog == null ? null : '${dog!.id}');
+    }
+    dataVersion++;
+    notifyListeners();
+  }
+
+  Future<void> selectDog(Dog d) async {
+    dog = d;
+    await store.write('dog', '${d.id}');
+    dataVersion++;
     notifyListeners();
   }
 
@@ -127,12 +174,51 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Registers the collar for the selected dog and keeps its upload token on the phone.
-  Future<void> pairCollar(String collarId) async {
-    final token = await api!.registerDevice(dog!.id, collarId);
-    await store.write('paired_collar', collarId);
-    await store.write('device_token', token);
+  Future<void> updateName(String name) async {
+    me = await api!.updateMe(name: name.trim().isEmpty ? null : name.trim());
+    notifyListeners();
+  }
+
+  Future<void> changePassword(String current, String next) =>
+      api!.changePassword(current, next);
+
+  /// Registers the collar for [forDog] (default: the dog on screen). A collar already paired
+  /// here with another dog moves (the server keeps the old dog's history).
+  Future<void> pairCollar(String collarId, {Dog? forDog, String? name}) async {
+    final d = forDog ?? dog!;
+    final r = await api!.registerDevice(d.id, collarId, name: name);
+    collars = [
+      for (final c in collars)
+        if (c.id != collarId) c,
+      PairedCollar(
+        id: collarId,
+        dogId: d.id,
+        deviceId: r.deviceId,
+        token: r.token,
+        name: name,
+      ),
+    ];
+    await _saveCollars();
     pairStepPending = false;
+    notifyListeners();
+  }
+
+  /// Unpairs on the server (its token stops working) and forgets it on this phone.
+  Future<void> unpairCollar(PairedCollar c) async {
+    if (c.deviceId != null) {
+      try {
+        await api!.deleteDevice(c.deviceId!);
+      } on ApiException catch (e) {
+        // already gone on the server: just forget it here
+        if (e.status != 404) rethrow;
+      }
+    }
+    collars = [
+      for (final x in collars)
+        if (x.id != c.id) x,
+    ];
+    await store.write('sync_since_${c.id}', null);
+    await _saveCollars();
     notifyListeners();
   }
 
@@ -141,12 +227,38 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> _loadCollars() async {
+    final raw = await store.read('collars');
+    collars = raw == null
+        ? []
+        : [
+            for (final j in jsonDecode(raw) as List)
+              PairedCollar.fromJson(j as Map<String, dynamic>),
+          ];
+    // app versions before several dogs kept one collar for the selected dog
+    final legacy = await store.read('paired_collar');
+    final legacyToken = await store.read('device_token');
+    final legacyDog = int.tryParse(await store.read('dog') ?? '');
+    if (legacy != null && legacyToken != null && legacyDog != null) {
+      collars = [
+        for (final c in collars)
+          if (c.id != legacy) c,
+        PairedCollar(id: legacy, dogId: legacyDog, token: legacyToken),
+      ];
+      await _saveCollars();
+    }
+    await store.write('paired_collar', null);
+    await store.write('device_token', null);
+  }
+
+  Future<void> _saveCollars() =>
+      store.write('collars', jsonEncode([for (final c in collars) c.toJson()]));
+
   /// LGPD: deletes the account and every record on the server, then forgets it here.
   Future<void> deleteAccount() async {
     await api!.deleteMe();
-    for (final k in ['paired_collar', 'device_token']) {
-      await store.write(k, null);
-    }
+    collars = [];
+    await _saveCollars();
     await signOut();
   }
 
@@ -182,6 +294,7 @@ class AppState extends ChangeNotifier {
     _pushRefresh = null;
     api?.token = null;
     dog = null;
+    dogs = [];
     me = null;
     await store.write('token', null);
     await store.write('dog', null);
@@ -192,14 +305,15 @@ class AppState extends ChangeNotifier {
 
   /// Syncs the paired collar (contract 4.8) and uploads. `auto` runs are silent, skipped
   /// when there is no paired collar and throttled, so opening the app often is cheap.
+  /// Syncs every collar paired on this phone (all dogs, contract 4.8) and uploads. `auto`
+  /// runs are silent and throttled, so opening the app often is cheap; a collar out of range
+  /// does not stop the others.
   Future<SyncResult?> syncCollar(
     SyncTransport transport, {
     bool auto = false,
     Duration minInterval = const Duration(minutes: 10),
   }) async {
-    final collar = await store.read('paired_collar');
-    final token = await store.read('device_token');
-    if (syncing || collar == null || token == null || api == null) return null;
+    if (syncing || collars.isEmpty || api == null) return null;
     final now = _clock();
     if (auto &&
         _lastAttempt != null &&
@@ -209,27 +323,46 @@ class AppState extends ChangeNotifier {
     _lastAttempt = now;
     syncing = true;
     notifyListeners();
+    final service = SyncService(
+      transport: transport,
+      api: api!,
+      store: store,
+      cache: cache,
+    );
+    final lines = <String>[];
+    Object? firstError;
+    SyncResult? total;
     try {
-      final r = await SyncService(
-        transport: transport,
-        api: api!,
-        store: store,
-        cache: cache,
-      ).syncAndUpload(collar, token);
-      lastSyncAt = _clock();
-      if (r.records > 0) dataVersion++;
-      lastSyncMessage = r.records == 0
-          ? 'Already up to date.'
-          : r.uploaded
-          ? 'Synced ${r.records} minutes (${r.inserted} new on the server).'
-          : 'Got ${r.records} minutes from the collar; upload will be retried '
-                '(server unreachable).';
-      return r;
-    } catch (e) {
-      // auto runs fail quietly (collar out of range is normal); manual runs show it
-      lastSyncMessage = auto ? lastSyncMessage : 'Sync failed: $e';
-      if (!auto) rethrow;
-      return null;
+      for (final c in List.of(collars)) {
+        final who =
+            dogs.where((d) => d.id == c.dogId).firstOrNull?.name ?? c.id;
+        try {
+          final r = await service.syncAndUpload(c.id, c.token, dogId: c.dogId);
+          if (r.records > 0) dataVersion++;
+          lines.add(
+            r.records == 0
+                ? '$who: already up to date.'
+                : r.uploaded
+                ? '$who: synced ${r.records} minutes (${r.inserted} new on the server).'
+                : '$who: got ${r.records} minutes; upload will be retried (server unreachable).',
+          );
+          total = SyncResult(
+            records: (total?.records ?? 0) + r.records,
+            inserted: (total?.inserted ?? 0) + r.inserted,
+            duplicates: (total?.duplicates ?? 0) + r.duplicates,
+            newestMinute: r.newestMinute ?? total?.newestMinute,
+            uploadError: r.uploadError ?? total?.uploadError,
+          );
+        } catch (e) {
+          firstError ??= e;
+          lines.add('$who: not reached ($e).');
+        }
+      }
+      if (total != null) lastSyncAt = _clock();
+      // auto runs fail quietly (a collar out of range is normal); manual runs show it
+      if (!auto || total != null) lastSyncMessage = lines.join('\n');
+      if (total == null && !auto && firstError != null) throw firstError;
+      return total;
     } finally {
       syncing = false;
       notifyListeners();
@@ -237,10 +370,42 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _pickDog() async {
-    final dogs = await api!.dogs();
+    dogs = await api!.dogs();
     final saved = int.tryParse(await store.read('dog') ?? '');
     dog = dogs.where((d) => d.id == saved).firstOrNull ?? dogs.firstOrNull;
   }
+}
+
+/// A collar paired from this phone.
+class PairedCollar {
+  const PairedCollar({
+    required this.id,
+    required this.dogId,
+    required this.token,
+    this.deviceId,
+    this.name,
+  });
+  final String id; // BLE id
+  final int dogId;
+  final String token; // device upload token (shown once by the server)
+  final int? deviceId; // server row; null for pairings from older app versions
+  final String? name;
+
+  factory PairedCollar.fromJson(Map<String, dynamic> j) => PairedCollar(
+    id: j['id'] as String,
+    dogId: j['dog_id'] as int,
+    token: j['token'] as String,
+    deviceId: j['device_id'] as int?,
+    name: j['name'] as String?,
+  );
+
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'dog_id': dogId,
+    'token': token,
+    'device_id': deviceId,
+    'name': name,
+  };
 }
 
 class AppScope extends InheritedNotifier<AppState> {

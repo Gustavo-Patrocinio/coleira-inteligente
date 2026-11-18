@@ -40,7 +40,7 @@ class _TodayScreenState extends State<TodayScreen> {
       rethrow; // the server answered: a real error, not a connectivity problem
     } catch (e) {
       final (from, to) = dayBounds(day, _localOffset);
-      final local = await s.cache.range(from, to);
+      final local = await s.cache.range(from, to, dog: s.dog!.id);
       if (local.isEmpty) rethrow;
       _offline = true;
       return dayFromRecords(day, local);
@@ -79,7 +79,7 @@ class _TodayScreenState extends State<TodayScreen> {
   Widget build(BuildContext context) {
     final dog = AppScope.of(context).dog!;
     return Scaffold(
-      appBar: AppBar(title: Text('${dog.name} · today')),
+      appBar: AppBar(title: DogTitle((d) => '${d.name} · today')),
       body: RefreshIndicator(
         onRefresh: () async => _load(),
         child: FutureBuilder<DayView>(
@@ -141,6 +141,7 @@ class _TodayScreenState extends State<TodayScreen> {
                       sleepSnap.data,
                       d.nightWakeups,
                       _localOffset,
+                      subject: dog.subject,
                     );
                     return IndicatorCard(
                       icon: Icons.nightlight_round,
@@ -154,7 +155,7 @@ class _TodayScreenState extends State<TodayScreen> {
                   icon: Icons.pets,
                   label: 'Skin',
                   value: 'scratched ${formatDuration(scratch)}',
-                  detail: 'compared with his normal in Trends',
+                  detail: 'compared with ${dog.possessive} normal in Trends',
                 ),
                 if (d.blocks.isEmpty)
                   const Padding(

@@ -1,6 +1,8 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../api/api_client.dart';
 import '../core/contracts.dart';
+import 'app_state.dart';
 
 /// 24 h timeline: 96 slots of 15 min, colored by behavior (same colors as the labeler).
 class TimelineBar extends StatelessWidget {
@@ -183,4 +185,74 @@ class DayBars extends StatelessWidget {
       ),
     );
   }
+}
+
+/// App bar title such as "Thor · today". With more than one dog, tapping it picks another dog
+/// (every tab follows the selected dog).
+class DogTitle extends StatelessWidget {
+  const DogTitle(this.suffix, {super.key});
+  final String Function(Dog dog) suffix;
+
+  Future<void> _pick(BuildContext context) async {
+    final s = AppScope.of(context);
+    final picked = await showModalBottomSheet<Dog>(
+      context: context,
+      builder: (c) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            const ListTile(title: Text('Show which dog?')),
+            for (final d in s.dogs)
+              ListTile(
+                leading: DogAvatar(d),
+                title: Text(d.name),
+                subtitle: dogSubtitle(d) == null ? null : Text(dogSubtitle(d)!),
+                trailing: d.id == s.dog?.id ? const Icon(Icons.check) : null,
+                onTap: () => Navigator.pop(c, d),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (picked != null && picked.id != s.dog?.id) await s.selectDog(picked);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = AppScope.of(context);
+    final title = Text(suffix(s.dog!));
+    if (s.dogs.length < 2) return title;
+    return InkWell(
+      onTap: () => _pick(context),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(child: title),
+          const Icon(Icons.arrow_drop_down),
+        ],
+      ),
+    );
+  }
+}
+
+class DogAvatar extends StatelessWidget {
+  const DogAvatar(this.dog, {super.key});
+  final Dog dog;
+  @override
+  Widget build(BuildContext context) => CircleAvatar(
+    child: Text(
+      dog.name.isEmpty ? '?' : dog.name.characters.first.toUpperCase(),
+    ),
+  );
+}
+
+/// "Labrador · 3 years · 28 kg" (only what the profile has), or null.
+String? dogSubtitle(Dog d, {DateTime? today}) {
+  final kg = d.weightKg;
+  final parts = [
+    if (d.breed != null && d.breed!.isNotEmpty) d.breed!,
+    ?d.ageText(today ?? DateTime.now()),
+    if (kg != null) '${kg == kg.roundToDouble() ? kg.round() : kg} kg',
+  ];
+  return parts.isEmpty ? null : parts.join(' · ');
 }

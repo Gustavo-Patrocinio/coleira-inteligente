@@ -27,7 +27,7 @@ Screens follow the clickable prototype (`docs/product/app-prototype/`).
 
 ```bash
 flutter analyze
-flutter test        # 34 tests, no device needed
+flutter test        # 35 tests, no device needed
 ```
 
 ## Run on your iPhone (from the MacBook)
@@ -72,7 +72,7 @@ to the server (`PUT /v1/me/push-token`); signing out removes it.
 
 ## Status
 
-- [x] `flutter analyze` clean, 34 tests passing (2026-11-17)
+- [x] `flutter analyze` clean, 35 tests passing (2026-11-17)
 - [ ] Collection mode tested with the real collar logger (needs the XIAO)
 - [ ] Installed on an iPhone and an Android phone
 - [x] Phase 3 sync (contract 4.8): pair collar, "Sync now", upload via `api.ingest` (22 tests)
@@ -80,6 +80,9 @@ to the server (`PUT /v1/me/push-token`); signing out removes it.
       records kept on the phone so Today works offline and failed uploads are retried
 - [x] First-run onboarding: privacy notice + consent (LGPD, recorded on the server) → dog → pair
       collar; "Your data": download everything / delete the account
+- [x] Several dogs and collars per account: Profile tab (owner name, password, dogs with
+      sex, neutering, breed, birth date, weight), dog switcher on every tab, several collars
+      per dog, unpair, all paired collars synced in one go, local cache kept per dog
 - [x] Sleep on Today: bedtime–wake time, rest, awakenings, naps (estimated from movement)
 - [x] Push notifications for new alerts (FCM, token sent after consent, removed on sign-out);
       [ ] tested on a real phone with a Firebase project

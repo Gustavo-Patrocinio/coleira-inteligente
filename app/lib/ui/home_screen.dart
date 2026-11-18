@@ -6,6 +6,7 @@ import 'alerts_screen.dart';
 import 'app_state.dart';
 import 'collar_screen.dart';
 import 'onboarding.dart';
+import 'profile_screen.dart';
 import 'today_screen.dart';
 import 'trends_screen.dart';
 
@@ -56,9 +57,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       const TrendsScreen(),
       const AlertsScreen(),
       CollarScreen(link: widget.link, sync: widget.sync),
+      const ProfileScreen(),
     ];
     return Scaffold(
-      body: pages[_tab],
+      // a new dog selected → the tab starts over with that dog's data
+      body: KeyedSubtree(key: ValueKey(s.dog!.id), child: pages[_tab]),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _tab,
         onDestinationSelected: (i) => setState(() => _tab = i),
@@ -70,6 +73,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             label: 'Alerts',
           ),
           NavigationDestination(icon: Icon(Icons.sensors), label: 'Collar'),
+          NavigationDestination(icon: Icon(Icons.person), label: 'Profile'),
         ],
       ),
     );

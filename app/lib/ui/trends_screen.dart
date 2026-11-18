@@ -32,9 +32,8 @@ class _TrendsScreenState extends State<TrendsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final dog = AppScope.of(context).dog!;
     return Scaffold(
-      appBar: AppBar(title: Text('${dog.name}\'s trends')),
+      appBar: AppBar(title: DogTitle((d) => '${d.name}\'s trends')),
       body: FutureBuilder<List<DayMetric>>(
         future: _data,
         builder: (context, snap) {

@@ -60,6 +60,7 @@ class SyncService {
   Future<SyncResult> syncAndUpload(
     String collarId,
     String deviceToken, {
+    int dogId = 0,
     Duration timeout = const Duration(seconds: 60),
   }) async {
     final since =
@@ -114,9 +115,8 @@ class SyncService {
       );
     }
     final all = Uint8List.fromList([for (final r in records) ...r]);
-    await cache?.add(
-      all,
-    ); // the day shows on this phone even if the upload fails
+    // the day shows on this phone even if the upload fails
+    await cache?.add(all, dog: dogId);
     final IngestResult res;
     try {
       res = await api.ingest(deviceToken, all, via: 'app');

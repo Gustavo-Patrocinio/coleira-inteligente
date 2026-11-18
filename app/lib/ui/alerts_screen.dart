@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../api/alert_text.dart';
 import '../api/api_client.dart';
 import 'app_state.dart';
+import 'widgets.dart';
 
 class AlertsScreen extends StatefulWidget {
   const AlertsScreen({super.key});
@@ -38,7 +39,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
   Widget build(BuildContext context) {
     final dog = AppScope.of(context).dog!;
     return Scaffold(
-      appBar: AppBar(title: const Text('Alerts')),
+      appBar: AppBar(title: DogTitle((d) => '${d.name} · alerts')),
       body: RefreshIndicator(
         onRefresh: () async => _load(),
         child: FutureBuilder<List<AlertItem>>(
@@ -68,7 +69,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
                       'weeks and only warns when a day is far from it.',
                     ),
                   ),
-                for (final a in snap.data!) _card(context, a, dog.name),
+                for (final a in snap.data!) _card(context, a, dog),
               ],
             );
           },
@@ -77,8 +78,8 @@ class _AlertsScreenState extends State<AlertsScreen> {
     );
   }
 
-  Widget _card(BuildContext context, AlertItem a, String dogName) {
-    final copy = alertCopy(a, dogName);
+  Widget _card(BuildContext context, AlertItem a, Dog dog) {
+    final copy = alertCopy(a, dog);
     final given =
         _given[a.id] ?? (a.feedback == null ? null : a.feedback == 'useful');
     return Card(

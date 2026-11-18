@@ -24,8 +24,8 @@
 
 | Data | Where it comes from | Why |
 |---|---|---|
-| Email and password (stored only as a one-way hash, scrypt) | you, at sign-up | your account and sign-in |
-| Your dog's name, time zone, and optionally birth date and weight | you | show days and nights in your dog's local time; profile |
+| Email, optionally your name, and password (stored only as a one-way hash, scrypt) | you, at sign-up and in Profile | your account and sign-in |
+| Each dog's name, time zone, and optionally sex, neutering, breed, birth date and weight | you | show days and nights in your dog's local time; profile |
 | The collar's Bluetooth address and a device key (stored only as a hash) | the app, when you pair the collar | so the server accepts data only from your collar |
 | Per-minute activity: seconds still, walking, running, scratching, shaking, eating, drinking; battery level | the collar, through the app or the home base station | your dog's routine, trends and alerts |
 | Daily summaries, alerts and your "made sense / false alarm" answers | computed by the server; your answers | alerts, and improving them |

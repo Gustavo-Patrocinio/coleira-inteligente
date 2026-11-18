@@ -10,11 +10,11 @@ import 'package:path_provider/path_provider.dart';
 import '../core/summary_record.dart';
 
 abstract class SummaryCache {
-  /// Adds raw 15-byte records (duplicates are fine: reads keep one per minute).
-  Future<void> add(Uint8List records);
+  /// Adds raw 15-byte records of one dog (duplicates are fine: reads keep one per minute).
+  Future<void> add(Uint8List records, {int dog = 0});
 
-  /// Records with `fromTs <= minute_ts < toTs`, one per minute, oldest first.
-  Future<List<MinuteSummary>> range(int fromTs, int toTs);
+  /// The dog's records with `fromTs <= minute_ts < toTs`, one per minute, oldest first.
+  Future<List<MinuteSummary>> range(int fromTs, int toTs, {int dog = 0});
 
   /// Removes every record (sign out, account deletion: privacy policy).
   Future<void> clear();
@@ -30,17 +30,21 @@ List<MinuteSummary> _dedupe(Iterable<MinuteSummary> all, int fromTs, int toTs) {
 }
 
 class MemorySummaryCache implements SummaryCache {
-  final List<MinuteSummary> records = [];
+  final Map<int, List<MinuteSummary>> records = {};
   @override
-  Future<void> add(Uint8List r) async => records.addAll(decodeSummaries(r));
+  Future<void> add(Uint8List r, {int dog = 0}) async =>
+      records.putIfAbsent(dog, () => []).addAll(decodeSummaries(r));
   @override
-  Future<List<MinuteSummary>> range(int fromTs, int toTs) async =>
-      _dedupe(records, fromTs, toTs);
+  Future<List<MinuteSummary>> range(
+    int fromTs,
+    int toTs, {
+    int dog = 0,
+  }) async => _dedupe(records[dog] ?? const [], fromTs, toTs);
   @override
   Future<void> clear() async => records.clear();
 }
 
-/// One append-only file; trimmed to the last [keepDays] when it grows (~21 KB per day).
+/// One append-only file per dog; trimmed to the last [keepDays] when it grows (~21 KB per day).
 class FileSummaryCache implements SummaryCache {
   FileSummaryCache({this.keepDays = 14, Future<Directory> Function()? dir})
     : _dir = dir ?? getApplicationSupportDirectory;
@@ -48,12 +52,12 @@ class FileSummaryCache implements SummaryCache {
   final int keepDays;
   final Future<Directory> Function() _dir;
 
-  Future<File> _file() async =>
-      File('${(await _dir()).path}${Platform.pathSeparator}summaries.bin');
+  Future<File> _file(int dog) async =>
+      File('${(await _dir()).path}${Platform.pathSeparator}summaries_$dog.bin');
 
   @override
-  Future<void> add(Uint8List records) async {
-    final f = await _file();
+  Future<void> add(Uint8List records, {int dog = 0}) async {
+    final f = await _file(dog);
     await f.writeAsBytes(records, mode: FileMode.append, flush: true);
     if (await f.length() > (keepDays + 2) * 1440 * summaryRecordSize) {
       final newest = decodeSummaries(await f.readAsBytes())
@@ -68,8 +72,8 @@ class FileSummaryCache implements SummaryCache {
   }
 
   @override
-  Future<List<MinuteSummary>> range(int fromTs, int toTs) async {
-    final f = await _file();
+  Future<List<MinuteSummary>> range(int fromTs, int toTs, {int dog = 0}) async {
+    final f = await _file(dog);
     if (!await f.exists()) return [];
     final bytes = await f.readAsBytes();
     // a crash mid-append can leave a partial record at the end: ignore it
@@ -83,7 +87,14 @@ class FileSummaryCache implements SummaryCache {
 
   @override
   Future<void> clear() async {
-    final f = await _file();
-    if (await f.exists()) await f.delete();
+    final dir = await _dir();
+    if (!await dir.exists()) return;
+    await for (final f in dir.list()) {
+      final name = f.uri.pathSegments.last;
+      // summaries.bin: the single file of app versions before several dogs
+      if (f is File && name.startsWith('summaries') && name.endsWith('.bin')) {
+        await f.delete();
+      }
+    }
   }
 }

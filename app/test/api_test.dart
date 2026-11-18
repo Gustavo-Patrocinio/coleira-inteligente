@@ -206,7 +206,18 @@ void main() {
       value: 900,
       median: 180,
     );
-    final c = alertCopy(a, 'Thor');
+    const thor = Dog(
+      id: 1,
+      name: 'Thor',
+      timezone: 'America/Sao_Paulo',
+      sex: 'male',
+    );
+    final c = alertCopy(a, thor);
+    expect(c.body, contains('His normal'));
+    expect(
+      alertCopy(a, const Dog(id: 2, name: 'Mel', timezone: 'UTC')).body,
+      contains('Their normal is about 3 min. Worth checking their skin'),
+    );
     expect(c.title, 'Scratched 5.0× more than usual');
     expect(c.body, contains('15 min'));
     expect(c.body, contains('3 min'));
@@ -218,6 +229,6 @@ void main() {
       value: 3600,
       median: 10800,
     );
-    expect(alertCopy(low, 'Thor').title, 'Activity 67% below normal');
+    expect(alertCopy(low, thor).title, 'Activity 67% below normal');
   });
 }

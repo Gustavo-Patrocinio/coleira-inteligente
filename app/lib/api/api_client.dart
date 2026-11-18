@@ -15,15 +15,111 @@ class ApiException implements Exception {
 }
 
 class Dog {
-  const Dog({required this.id, required this.name, required this.timezone});
+  const Dog({
+    required this.id,
+    required this.name,
+    required this.timezone,
+    this.sex,
+    this.neutered,
+    this.breed,
+    this.birthDate,
+    this.weightKg,
+  });
   final int id;
   final String name;
   final String timezone;
+  final String? sex; // male | female
+  final bool? neutered;
+  final String? breed;
+  final String? birthDate; // YYYY-MM-DD
+  final double? weightKg;
 
   factory Dog.fromJson(Map<String, dynamic> j) => Dog(
     id: _int(j['id']),
     name: j['name'] as String,
     timezone: j['timezone'] as String,
+    sex: j['sex'] as String?,
+    neutered: j['neutered'] as bool?,
+    breed: j['breed'] as String?,
+    birthDate: j['birth_date'] as String?,
+    weightKg: j['weight_kg'] == null ? null : double.parse('${j['weight_kg']}'),
+  );
+
+  /// Pronouns for app copy: from the profile's sex, "they/their" when not set.
+  String get subject => switch (sex) {
+    'male' => 'he',
+    'female' => 'she',
+    _ => 'they',
+  };
+  String get possessive => switch (sex) {
+    'male' => 'his',
+    'female' => 'her',
+    _ => 'their',
+  };
+
+  /// Whole years and months on `today`, e.g. "3 years", "7 months"; null without a birth date.
+  String? ageText(DateTime today) {
+    final b = birthDate == null ? null : DateTime.tryParse(birthDate!);
+    if (b == null) return null;
+    var months = (today.year - b.year) * 12 + today.month - b.month;
+    if (today.day < b.day) months--;
+    if (months < 0) return null;
+    if (months < 12) return '$months month${months == 1 ? '' : 's'}';
+    final y = months ~/ 12;
+    return '$y year${y == 1 ? '' : 's'}';
+  }
+}
+
+/// What the profile form sends (create or edit). `null` clears a field on edit.
+class DogProfile {
+  const DogProfile({
+    required this.name,
+    this.sex,
+    this.neutered,
+    this.breed,
+    this.birthDate,
+    this.weightKg,
+  });
+  final String name;
+  final String? sex;
+  final bool? neutered;
+  final String? breed;
+  final String? birthDate;
+  final double? weightKg;
+
+  Map<String, Object?> toJson() => {
+    'name': name,
+    'sex': sex,
+    'neutered': neutered,
+    'breed': (breed == null || breed!.trim().isEmpty) ? null : breed!.trim(),
+    'birth_date': birthDate,
+    'weight_kg': weightKg,
+  };
+}
+
+/// A collar registered to a dog on the server (GET /v1/dogs/:id/devices).
+class CollarInfo {
+  const CollarInfo({
+    required this.deviceId,
+    required this.serial,
+    this.name,
+    this.lastMinute,
+    this.batteryPct,
+  });
+  final int deviceId;
+  final String serial;
+  final String? name;
+  final DateTime? lastMinute;
+  final int? batteryPct;
+
+  factory CollarInfo.fromJson(Map<String, dynamic> j) => CollarInfo(
+    deviceId: _int(j['id']),
+    serial: j['serial'] as String,
+    name: j['name'] as String?,
+    lastMinute: j['last_minute'] == null
+        ? null
+        : DateTime.parse(j['last_minute'] as String),
+    batteryPct: j['battery_pct'] == null ? null : _int(j['battery_pct']),
   );
 }
 
@@ -197,15 +293,18 @@ class IngestResult {
 class Me {
   const Me({
     required this.email,
+    this.name,
     this.consentVersion,
     this.researchOptIn = false,
   });
   final String email;
+  final String? name;
   final int? consentVersion;
   final bool researchOptIn;
 
   factory Me.fromJson(Map<String, dynamic> j) => Me(
     email: j['email'] as String,
+    name: j['name'] as String?,
     consentVersion: j['consent_version'] == null
         ? null
         : _int(j['consent_version']),
@@ -243,20 +342,49 @@ class CollarApi {
   ];
 
   Future<Dog> createDog(
-    String name, {
+    DogProfile profile, {
     String timezone = 'America/Sao_Paulo',
   }) async => Dog.fromJson(
-    await _send('POST', '/v1/dogs', body: {'name': name, 'timezone': timezone}),
+    await _send(
+      'POST',
+      '/v1/dogs',
+      body: {
+        for (final e in profile.toJson().entries)
+          if (e.value != null) e.key: e.value,
+        'timezone': timezone,
+      },
+    ),
   );
 
-  /// Returns the device token (shown once by the backend).
-  Future<String> registerDevice(int dogId, String serial) async =>
-      (await _send(
-            'POST',
-            '/v1/dogs/$dogId/devices',
-            body: {'serial': serial},
-          ))['token']
-          as String;
+  Future<Dog> updateDog(int dogId, DogProfile profile) async => Dog.fromJson(
+    await _send('PATCH', '/v1/dogs/$dogId', body: profile.toJson()),
+  );
+
+  /// Removes the dog and all of its minutes, alerts and collars on the server.
+  Future<void> deleteDog(int dogId) => _send('DELETE', '/v1/dogs/$dogId');
+
+  /// Registers a collar for a dog; the token is shown once by the backend.
+  Future<({int deviceId, String token})> registerDevice(
+    int dogId,
+    String serial, {
+    String? name,
+  }) async {
+    final j = await _send(
+      'POST',
+      '/v1/dogs/$dogId/devices',
+      body: {'serial': serial, 'name': ?name},
+    );
+    return (deviceId: _int(j['device_id']), token: j['token'] as String);
+  }
+
+  Future<List<CollarInfo>> devices(int dogId) async => [
+    for (final d in await _send('GET', '/v1/dogs/$dogId/devices') as List)
+      CollarInfo.fromJson(d as Map<String, dynamic>),
+  ];
+
+  /// Unpairs a collar: its token stops working; its minutes stay with the dog.
+  Future<void> deleteDevice(int deviceId) =>
+      _send('DELETE', '/v1/devices/$deviceId');
 
   Future<DayView> day(int dogId, String day) async =>
       DayView.fromJson(await _send('GET', '/v1/dogs/$dogId/days/$day'));
@@ -284,6 +412,15 @@ class CollarApi {
   );
 
   Future<Me> me() async => Me.fromJson(await _send('GET', '/v1/me'));
+
+  Future<Me> updateMe({String? name}) async =>
+      Me.fromJson(await _send('PATCH', '/v1/me', body: {'name': name}));
+
+  Future<void> changePassword(String current, String next) => _send(
+    'POST',
+    '/v1/me/password',
+    body: {'current_password': current, 'new_password': next},
+  );
 
   Future<Me> putConsent(int version, {required bool researchOptIn}) async =>
       Me.fromJson(

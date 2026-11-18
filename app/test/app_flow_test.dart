@@ -49,6 +49,10 @@ class _NoSync implements SyncTransport {
 
 void main() {
   testWidgets('sign in, create the dog and see Today', (tester) async {
+    // a tall phone, so the whole dog form fits without scrolling
+    tester.view.physicalSize = const Size(1170, 3600);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
     final dogs = <Map<String, Object>>[];
     Map<String, Object?> me = {
       'email': 'a@b.com',
@@ -72,8 +76,15 @@ void main() {
         return http.Response(jsonEncode(dogs), 200);
       }
       if (p == '/v1/dogs' && req.method == 'POST') {
-        dogs.add({'id': '1', 'name': 'Thor', 'timezone': 'America/Sao_Paulo'});
+        final b = jsonDecode(req.body) as Map<String, dynamic>;
+        dogs.add({...b.cast<String, Object>(), 'id': '${dogs.length + 1}'});
         return http.Response(jsonEncode(dogs.last), 201);
+      }
+      if (p.startsWith('/v1/dogs/2/days/')) {
+        return http.Response(
+          jsonEncode({'day': '2026-11-17', 'totals': {}, 'blocks': []}),
+          200,
+        );
       }
       if (p.startsWith('/v1/dogs/1/days/')) {
         return http.Response(
@@ -141,6 +152,7 @@ void main() {
 
     expect(find.text('What is your dog\'s name?'), findsOneWidget);
     await tester.enterText(find.widgetWithText(TextField, 'Name'), 'Thor');
+    await tester.tap(find.text('Male'));
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
 
@@ -151,6 +163,39 @@ void main() {
     expect(find.text('Thor · today'), findsOneWidget);
     expect(find.text('1h12'), findsOneWidget); // 2400 + 1920 s of exercise
     expect(find.text('woke up 2×'), findsOneWidget);
+    expect(find.text('scratched 11 min'), findsOneWidget);
+    expect(find.text('compared with his normal in Trends'), findsOneWidget);
+    expect(dogs.single['sex'], 'male');
+
+    // a second dog from Profile; every tab follows the selected dog
+    await tester.tap(find.text('Profile'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Add a dog'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Name'), 'Mel');
+    await tester.tap(find.text('Female'));
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Weight (optional)'),
+      '12,5',
+    );
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    expect(
+      dogs.last,
+      containsPair('weight_kg', 12.5),
+    ); // comma typed, number sent
+    expect(find.textContaining('Mel'), findsWidgets);
+
+    await tester.tap(find.text('Today'));
+    await tester.pumpAndSettle();
+    expect(find.text('Mel · today'), findsOneWidget);
+    expect(find.text('compared with her normal in Trends'), findsOneWidget);
+
+    await tester.tap(find.text('Mel · today')); // switcher (2 dogs)
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Thor').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Thor · today'), findsOneWidget);
     expect(find.text('scratched 11 min'), findsOneWidget);
   });
 }

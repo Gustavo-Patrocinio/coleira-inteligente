@@ -10,6 +10,7 @@ import '../api/api_client.dart';
 import '../collar/collar_link.dart';
 import '../core/sync_protocol.dart';
 import 'app_state.dart';
+import 'dog_form.dart';
 
 class ConsentScreen extends StatefulWidget {
   const ConsentScreen({super.key});
@@ -117,44 +118,32 @@ class _ConsentScreenState extends State<ConsentScreen> {
   }
 }
 
-class CreateDogScreen extends StatefulWidget {
+class CreateDogScreen extends StatelessWidget {
   const CreateDogScreen({super.key});
-  @override
-  State<CreateDogScreen> createState() => _CreateDogScreenState();
-}
-
-class _CreateDogScreenState extends State<CreateDogScreen> {
-  final _name = TextEditingController();
-
-  @override
-  void dispose() {
-    _name.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Your dog')),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text('What is your dog\'s name?'),
-            TextField(
-              controller: _name,
-              decoration: const InputDecoration(labelText: 'Name'),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+            child: Text(
+              "What is your dog's name?",
+              style: Theme.of(context).textTheme.titleMedium,
             ),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: () => _name.text.trim().isEmpty
-                  ? null
-                  : AppScope.of(context).createDog(_name.text.trim()),
-              child: const Text('Continue'),
+          ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(24, 4, 24, 0),
+            child: Text(
+              'Only the name is needed now; you can add more dogs and edit this in '
+              'Profile later.',
             ),
-          ],
-        ),
+          ),
+          const Expanded(child: DogForm()),
+        ],
       ),
     );
   }
@@ -163,9 +152,15 @@ class _CreateDogScreenState extends State<CreateDogScreen> {
 /// Scans for collars running the normal firmware (sync service) and pairs one.
 /// Used by onboarding and by the Collar tab.
 class PairCollarPanel extends StatefulWidget {
-  const PairCollarPanel({super.key, required this.link, this.onPaired});
+  const PairCollarPanel({
+    super.key,
+    required this.link,
+    this.onPaired,
+    this.label = 'Pair collar',
+  });
   final CollarLink link;
   final VoidCallback? onPaired;
+  final String label;
   @override
   State<PairCollarPanel> createState() => _PairCollarPanelState();
 }
@@ -191,8 +186,12 @@ class _PairCollarPanelState extends State<PairCollarPanel> {
       _message = 'Looking for the collar… keep it close to the phone.';
     });
     _scan?.cancel();
+    final paired = {for (final p in AppScope.of(context).collars) p.id};
     _scan = widget.link.scan(services: const [syncServiceUuid]).listen((c) {
-      if (_found.every((f) => f.id != c.id)) setState(() => _found.add(c));
+      // collars already paired from this phone are not offered again
+      if (!paired.contains(c.id) && _found.every((f) => f.id != c.id)) {
+        setState(() => _found.add(c));
+      }
     });
     Future.delayed(const Duration(seconds: 12), () async {
       if (!mounted || !_scanning) return;
@@ -235,7 +234,7 @@ class _PairCollarPanelState extends State<PairCollarPanel> {
         FilledButton.icon(
           onPressed: _busy || _scanning ? null : _start,
           icon: const Icon(Icons.link),
-          label: Text(_scanning ? 'Looking…' : 'Pair collar'),
+          label: Text(_scanning ? 'Looking…' : widget.label),
         ),
         for (final c in _found)
           ListTile(

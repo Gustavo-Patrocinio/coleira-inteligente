@@ -355,7 +355,7 @@ arrives on its own.
 - [x] App: trends and alerts screens (with feedback), backed by the API; push notifications (code done, see above)
 - [ ] **Base station (`basestation/`, ADR 0007):** ESP32 (e.g. XIAO ESP32-C3) as BLE central that pulls new summaries from the collar and uploads them over Wi-Fi to `/ingest`; Wi-Fi provisioning from the app over BLE; per-device credential; collar prefers the base station when both clients are present
 - [ ] Phone keeps working as fallback sync away from home
-- [x] Several dogs per account; privacy (LGPD): export (`GET /v1/me/export`) and deletion (`DELETE /v1/me`); consent screen in the app, recorded on the server with its version (`PUT /v1/me/consent`, separate research opt-in); export/delete buttons in the app; per-IP rate limit on login/register
+- [x] Several dogs and several collars per account (profiles with sex, neutering, breed, birth date, weight; a collar moved between dogs keeps the old dog's history; app Profile tab and dog switcher, 2026-11-17); privacy (LGPD): export (`GET /v1/me/export`) and deletion (`DELETE /v1/me`); consent screen in the app, recorded on the server with its version (`PUT /v1/me/consent`, separate research opt-in); export/delete buttons in the app; per-IP rate limit on login/register
 - [x] Self-hostable with Docker Compose: `backend/DEPLOY.md` (Caddy HTTPS, nightly backups, restore tested locally); [ ] one shared instance for beta users
 
 **Done when:** a real alert fires correctly with your dog's data; repeated ingestion does

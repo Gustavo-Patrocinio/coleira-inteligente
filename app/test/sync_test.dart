@@ -251,12 +251,91 @@ void main() {
     final dir = await Directory.systemTemp.createTemp('collar_cache');
     final cache = FileSummaryCache(keepDays: 1, dir: () async => dir);
     await cache.add(records(3));
-    await File('${dir.path}/summaries.bin')
+    await File('${dir.path}/summaries_0.bin')
         .writeAsBytes([1, 2, 3], mode: FileMode.append);
     expect(await cache.range(t0, t0 + 3600), hasLength(3));
     await cache.clear(); // sign-out
     expect(await cache.range(t0, t0 + 3600), isEmpty);
     await cache.clear(); // twice is fine
     await dir.delete(recursive: true);
+  });
+
+  test('several dogs: every paired collar syncs into its own dog, old pairing migrates', () async {
+    final uploads = <String>[];
+    final backend = MockClient((req) async {
+      final p = req.url.path;
+      if (p == '/v1/ingest') {
+        uploads.add(req.headers['authorization']!);
+        final n =
+            base64Decode(jsonDecode(req.body)['records'] as String).length ~/
+            15;
+        return http.Response(
+          jsonEncode({
+            'received': n,
+            'inserted': n,
+            'duplicates': 0,
+            'rejected': [],
+          }),
+          200,
+        );
+      }
+      if (p == '/v1/dogs') {
+        return http.Response(
+          jsonEncode([
+            {'id': 1, 'name': 'Thor', 'timezone': 'America/Sao_Paulo'},
+            {'id': 2, 'name': 'Mel', 'timezone': 'America/Sao_Paulo'},
+          ]),
+          200,
+        );
+      }
+      if (p == '/v1/me') {
+        return http.Response('{"email":"a@b.com","consent_version":1}', 200);
+      }
+      if (p == '/v1/dogs/2/devices') {
+        return http.Response('{"device_id":"9","token":"dev_mel"}', 201);
+      }
+      return http.Response('{"error":"not found"}', 404);
+    });
+    // an app version before several dogs left one collar for dog 1
+    final store = MemorySessionStore()
+      ..data.addAll({
+        'server': 'http://server',
+        'token': 'jwt',
+        'dog': '1',
+        'paired_collar': 'AA:01',
+        'device_token': 'dev_thor',
+      });
+    final cache = MemorySummaryCache();
+    final state = AppState(
+      store: store,
+      apiFactory: (u) => CollarApi(baseUrl: u, client: backend),
+      cache: cache,
+    );
+    await state.restore();
+    expect(state.collars.single.id, 'AA:01');
+    expect(state.collars.single.dogId, 1);
+    expect(store.data.containsKey('paired_collar'), isFalse);
+
+    await state.pairCollar('BB:02', forDog: state.dogs[1]);
+    expect(state.collars.map((c) => '${c.id}>${c.dogId}'), [
+      'AA:01>1',
+      'BB:02>2',
+    ]);
+
+    final r = await state.syncCollar(FakeCollar(records(5)));
+    expect(r!.records, 10); // 5 from each collar
+    expect(uploads, ['Bearer dev_thor', 'Bearer dev_mel']);
+    expect(await cache.range(t0, t0 + 3600, dog: 1), hasLength(5));
+    expect(await cache.range(t0, t0 + 3600, dog: 2), hasLength(5));
+    expect(state.lastSyncMessage, contains('Mel: synced 5 minutes'));
+
+    // the pairing list survives a restart
+    final again = AppState(
+      store: store,
+      apiFactory: (u) => CollarApi(baseUrl: u, client: backend),
+      cache: cache,
+    );
+    await again.restore();
+    expect(again.collars, hasLength(2));
   });
 }

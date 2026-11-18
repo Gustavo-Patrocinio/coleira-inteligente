@@ -125,8 +125,9 @@ String _clock(DateTime t, Duration localOffset) {
 (String, String) sleepCardText(
   SleepView? sleep,
   int? nightWakeups,
-  Duration localOffset,
-) {
+  Duration localOffset, {
+  String subject = 'they',
+}) {
   final n = sleep?.night;
   if (n != null) {
     final naps = sleep!.napCount == 0
@@ -143,7 +144,7 @@ String _clock(DateTime t, Duration localOffset) {
     return ('—', 'not enough data from last night');
   }
   if (nightWakeups != null) {
-    return ('woke up $nightWakeups×', 'times he got up 23:00–06:00');
+    return ('woke up $nightWakeups×', 'times $subject got up 23:00–06:00');
   }
   return ('—', 'computed after the night is synced');
 }
