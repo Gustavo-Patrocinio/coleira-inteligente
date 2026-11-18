@@ -100,16 +100,16 @@ passphrase only you have, and deletes copies older than 14 days (the retention t
    **secret** now (shown once); the **access key** is the id in the list afterwards.
 4. **Passphrase:** make one (`openssl rand -base64 24`) and save it in your password
    manager **before** going on. Without it the off-site copies cannot be read, by anyone.
-5. On the VM, `nano ~/coleira-inteligente/backend/deploy/.env` and fill in:
+5. On the VM, put the bucket settings in `.env` (`nano .env`; they are not secret):
 
    ```
-   BACKUP_PASSPHRASE=<the passphrase>
    S3_ENDPOINT=https://<namespace>.compat.objectstorage.sa-saopaulo-1.oraclecloud.com
    S3_REGION=sa-saopaulo-1
    S3_BUCKET=collar-backups
-   S3_ACCESS_KEY_ID=<access key>
-   S3_SECRET_ACCESS_KEY=<secret>
    ```
+
+   and the three secrets with `bash offsite-keys.sh`: it asks for the access key, the secret
+   and the passphrase (twice) without showing them, and writes them into `.env`.
 
 6. Start it and check:
 
