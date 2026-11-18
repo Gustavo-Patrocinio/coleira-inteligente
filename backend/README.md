@@ -18,7 +18,8 @@ npm run typecheck
 ```
 
 Self-hosting on the internet with HTTPS (Caddy + Let's Encrypt), nightly backups and restore:
-[DEPLOY.md](DEPLOY.md) (`deploy/docker-compose.yml`).
+[DEPLOY.md](DEPLOY.md) (`deploy/docker-compose.yml`); on a free Oracle Cloud VM with encrypted
+off-site backups, step by step: [DEPLOY-ORACLE.md](DEPLOY-ORACLE.md).
 
 ## API
 

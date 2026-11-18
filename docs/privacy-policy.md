@@ -76,8 +76,9 @@ talk to a veterinarian.
 
 - While your account exists.
 - When you delete your account, everything is removed from the database **immediately**.
-  Nightly backups on the server still hold a copy for up to **14 days**, then they are deleted
-  too (backups are only used to recover from a server failure).
+  Nightly backups still hold a copy for up to **14 days**, then they are deleted too. Backups
+  are only used to recover from a server failure; a copy may be kept in the operator's cloud
+  storage, encrypted before it leaves the server with a key the storage provider does not have.
 - Data on your phone is removed when you sign out or uninstall the app.
 
 ## Your rights (LGPD art. 18)

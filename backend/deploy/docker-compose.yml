@@ -54,7 +54,7 @@ services:
 
   backup:
     # Nightly pg_dump into ./backups; dumps older than 14 days are pruned.
-    # Copy ./backups off the server too (another disk, cloud storage).
+    # The offsite service below copies them off the server.
     image: timescale/timescaledb:2.17.2-pg16
     restart: unless-stopped
     environment:
@@ -73,6 +73,32 @@ services:
     depends_on:
       db:
         condition: service_healthy
+
+  offsite:
+    # Optional (DEPLOY.md, step 5): encrypted copy of ./backups in object storage, so a dead
+    # server does not take the backups with it. Start with: docker compose --profile offsite up -d
+    profiles: ["offsite"]
+    image: rclone/rclone:1.68.2
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "/offsite.sh"]
+    environment:
+      BACKUP_PASSPHRASE: ${BACKUP_PASSPHRASE:-}
+      S3_BUCKET: ${S3_BUCKET:-}
+      OFFSITE_KEEP_DAYS: ${OFFSITE_KEEP_DAYS:-14}
+      RCLONE_CONFIG_STORE_TYPE: s3
+      RCLONE_CONFIG_STORE_PROVIDER: Other
+      RCLONE_CONFIG_STORE_ENDPOINT: ${S3_ENDPOINT:-}
+      RCLONE_CONFIG_STORE_REGION: ${S3_REGION:-}
+      RCLONE_CONFIG_STORE_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+      RCLONE_CONFIG_STORE_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
+      RCLONE_CONFIG_STORE_FORCE_PATH_STYLE: "true"
+      RCLONE_CONFIG_STORE_NO_CHECK_BUCKET: "true"
+      RCLONE_CONFIG_SAFE_TYPE: crypt
+      RCLONE_CONFIG_SAFE_FILENAME_ENCRYPTION: "off"
+      RCLONE_CONFIG_SAFE_DIRECTORY_NAME_ENCRYPTION: "false"
+    volumes:
+      - ./backups:/backups
+      - ./offsite.sh:/offsite.sh:ro
 
 volumes:
   db-data:

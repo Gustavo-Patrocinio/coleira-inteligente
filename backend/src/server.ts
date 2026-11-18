@@ -14,7 +14,7 @@ const app = await buildApp({
   logger: true,
   trustProxy: config.TRUST_PROXY,
 });
-await app.listen({ port: config.PORT, host: "0.0.0.0" });
+await app.listen({ port: config.PORT, host: config.HOST });
 
 const push = config.FCM_SERVICE_ACCOUNT_FILE ? FcmSender.fromFile(config.FCM_SERVICE_ACCOUNT_FILE) : undefined;
 app.log.info(push ? "push notifications on (FCM)" : "push notifications off (no FCM_SERVICE_ACCOUNT_FILE)");

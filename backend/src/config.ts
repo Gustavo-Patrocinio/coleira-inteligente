@@ -3,6 +3,8 @@ import { z } from "zod";
 const schema = z.object({
   DATABASE_URL: z.string().url().default("postgres://collar:collar@localhost:54329/collar"),
   JWT_SECRET: z.string().min(16, "JWT_SECRET must be at least 16 characters"),
+  // 127.0.0.1 = only this machine (behind a reverse proxy on the same host)
+  HOST: z.string().min(1).default("0.0.0.0"),
   PORT: z.coerce.number().int().default(3000),
   ALERTS_EVERY_MIN: z.coerce.number().int().min(0).default(60),
   // Firebase service account JSON (backend/DEPLOY.md, Push); unset = no push notifications

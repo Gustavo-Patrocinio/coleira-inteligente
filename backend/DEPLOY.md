@@ -13,6 +13,7 @@ plain HTTP outside the local network).
 | `api` | this backend (`Dockerfile`): migrations on start, alerts job every hour |
 | `caddy` | HTTPS reverse proxy; gets and renews the Let's Encrypt certificate on its own |
 | `backup` | `pg_dump` every night into `deploy/backups/`, keeps 14 days |
+| `offsite` | optional: copies the dumps to S3-compatible object storage, encrypted on the server (step 5) |
 
 Tested locally on 2026-11-17: image builds, migrations run, `/health` answers, register works,
 the nightly dump restores into an empty database (steps below).
@@ -22,6 +23,9 @@ the nightly dump restores into an empty database (steps below).
 Any Linux VPS with 1 vCPU, 1 GB RAM and 20 GB disk is plenty for tens of dogs (a dog is
 ~21 KB of data per day). Examples: Hetzner CX22, Oracle Cloud free tier (Ampere), DigitalOcean,
 Magalu Cloud. A Raspberry Pi 4 at home also works if your router can forward ports 80 and 443.
+
+**Oracle Cloud, step by step (free ARM VM, encrypted backups in Object Storage, one setup
+script):** [DEPLOY-ORACLE.md](DEPLOY-ORACLE.md).
 
 Install Docker:
 
@@ -65,7 +69,21 @@ Migrations run when the api starts; they are additive and run once.
 ## 5. Backups and restore
 
 Dumps land in `backend/deploy/backups/collar-YYYY-MM-DD.dump`. A backup only on the same
-server is not a backup: copy them elsewhere (e.g. `rclone` to cloud storage, or `scp` home).
+server is not a backup: the `offsite` container copies them to any S3-compatible storage
+(Oracle Object Storage, Backblaze B2, Cloudflare R2, AWS S3...), **encrypted on the server**
+with `BACKUP_PASSPHRASE` (rclone crypt), every 6 hours, keeping 14 days like the local dumps (`OFFSITE_KEEP_DAYS`; the privacy
+policy promises 14).
+Fill in the `BACKUP_PASSPHRASE` and `S3_*` lines of `.env` (keep the passphrase in a password
+manager too: without it the copies cannot be read) and start with the profile:
+
+```bash
+docker compose --profile offsite up -d
+docker compose logs offsite                     # offsite: copy ok (N dumps stored)
+docker compose run --rm offsite lsl safe:       # list the stored copies
+docker compose run --rm offsite copy safe:collar-2026-11-17.dump /backups/   # bring one back
+```
+
+Oracle Cloud specifics (bucket, keys, endpoint): [DEPLOY-ORACLE.md](DEPLOY-ORACLE.md), step 5.
 
 Restore into a fresh database (TimescaleDB needs the pre/post restore calls):
 
@@ -105,6 +123,7 @@ your users. It is not in git (`secrets/` is ignored).
       `JWT_SECRET` logs everyone out)
 - [ ] Only ports 22, 80 and 443 open; SSH with keys, password login off
 - [ ] Unattended OS security updates on (`sudo apt install unattended-upgrades`)
-- [ ] Backups copied off the server, and a restore tested once
+- [ ] Off-site backups on (`--profile offsite`), the passphrase saved outside the server,
+      and a restore tested once
 - [ ] If other people use your instance: the privacy notice and consent in the app (LGPD),
       and `DELETE /v1/me` works for them (it deletes the account and all its data)
