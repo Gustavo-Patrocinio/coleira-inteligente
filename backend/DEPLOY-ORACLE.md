@@ -8,7 +8,8 @@ limits (Ampere A1 up to 4 OCPU / 24 GB in total, 200 GB of disks, 20 GB of Objec
 > **Status (2026-11-18):** done end to end on a real VM (A1.Flex, 2 OCPU / 12 GB, Ubuntu
 > 24.04 aarch64): the script set everything up, Caddy got the certificate, register / me /
 > delete worked over HTTPS and the first nightly dump was written. The off-site copy was
-> tested against a local S3 server; on OCI Object Storage it is still to be switched on.
+> on since the same day: the first dump reached Object Storage encrypted and downloaded back
+> byte for byte.
 
 ## 1. Create the VM
 
@@ -154,6 +155,6 @@ The VM restarts on its own after kernel updates now and then; every container ha
 |---|---|
 | The script stops at "Not answering yet" | Security List rules from step 2 (`docker compose logs caddy`: *Timeout during connect (likely firewall problem)*). After adding them, `docker compose restart caddy` retries at once instead of waiting for its back-off |
 | `permission denied` on `docker` | log out and back in (the script added you to the `docker` group) |
-| `offsite: copy FAILED` | wrong endpoint/namespace/keys in `.env`, or the bucket is not in the root compartment |
+| `offsite: copy FAILED` / `SignatureDoesNotMatch ... secret key ... could not be found` | a new Customer secret key takes a few minutes to work everywhere: wait 5 minutes and `docker compose --profile offsite restart offsite`. Still failing: wrong endpoint/namespace/keys in `.env` |
 | `bad password?` when restoring | a different `BACKUP_PASSPHRASE` from the one that made the copy |
 | Out of capacity when creating the VM | step 1: retry later, smaller shape |
