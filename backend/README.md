@@ -28,8 +28,12 @@ Self-hosting on the internet with HTTPS (Caddy + Let's Encrypt), nightly backups
 | POST | `/v1/auth/register` | — | `{email, password}` → `{token}` (JWT, 30 days) |
 | POST | `/v1/auth/login` | — | `{email, password}` → `{token}` |
 | POST | `/v1/dogs` | user | `{name, timezone, birth_date?, weight_kg?}` |
+| PATCH | `/v1/dogs/:id` | user | edit the profile: `name, sex (male\|female), neutered, breed, birth_date, weight_kg, timezone` (null clears) |
+| DELETE | `/v1/dogs/:id` | user | removes the dog with its collars, minutes, metrics and alerts |
 | GET | `/v1/dogs` | user | the user's dogs |
-| POST | `/v1/dogs/:id/devices` | user | `{serial}` → `{device_id, token}` (device token shown once) |
+| POST | `/v1/dogs/:id/devices` | user | pair a collar `{serial, name?}` → `{device_id, token}` (token shown once). Same collar on the same dog again (new phone): same row, new token. On another of the owner's dogs: new row from now, the old dog keeps its history. Another account's active collar: 409 |
+| GET | `/v1/dogs/:id/devices` | user | the dog's active collars with last data minute and battery |
+| DELETE | `/v1/devices/:id` | user | unpair: the token stops working, the minutes stay |
 | POST | `/v1/ingest` | device | `{records: base64 of N × 15-byte records, via: base_station \| app}` → `{received, inserted, duplicates, rejected[]}` |
 | GET | `/v1/dogs/:id/days/:day` | user | local day: totals per class, 15-min blocks, night wake-ups |
 | GET | `/v1/dogs/:id/sleep/:day` | user | sleep estimated from movement: the night ending on `day` (bedtime, wake time, rest, awakenings, longest stretch, coverage) and that day's naps |
@@ -37,6 +41,8 @@ Self-hosting on the internet with HTTPS (Caddy + Let's Encrypt), nightly backups
 | GET | `/v1/dogs/:id/alerts` | user | latest alerts |
 | POST | `/v1/alerts/:id/feedback` | user | `{feedback: useful \| false_alarm}` |
 | GET | `/v1/me` | user | account: email, accepted privacy notice version, research opt-in |
+| PATCH | `/v1/me` | user | `{name}` |
+| POST | `/v1/me/password` | user | `{current_password, new_password}` (10+ characters; rate-limited like login) |
 | PUT | `/v1/me/consent` | user | `{version, research_opt_in}`: records consent (LGPD) with a timestamp |
 | PUT | `/v1/me/push-token` | user | `{token, platform: android\|ios}`: this phone gets push notifications for new alerts (FCM; `DEPLOY.md`) |
 | DELETE | `/v1/me/push-token` | user | `{token}`: stop notifying this phone (sign-out) |

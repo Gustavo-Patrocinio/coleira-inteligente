@@ -253,6 +253,95 @@ describe.runIf(() => available)("API with a real database", () => {
     expect(exp.json().user.password_hash).toBeUndefined();
   });
 
+  it("keeps owner and dog profiles, edits and removes them", async () => {
+    const owner = await user("profile@example.com");
+    const other = await user("intruder@example.com");
+    const created = await app.inject({
+      method: "POST",
+      url: "/v1/dogs",
+      headers: owner,
+      payload: { name: " Mel ", sex: "female", breed: "Mixed", birth_date: "2021-03-10", weight_kg: 12.5 },
+    });
+    expect(created.statusCode).toBe(201);
+    const mel = created.json();
+    expect(mel).toMatchObject({ name: "Mel", sex: "female", breed: "Mixed", birth_date: "2021-03-10", neutered: null });
+    expect(Number(mel.weight_kg)).toBe(12.5);
+
+    const edit = (headers: Record<string, string>, payload: object) =>
+      app.inject({ method: "PATCH", url: `/v1/dogs/${mel.id}`, headers, payload });
+    const edited = await edit(owner, { neutered: true, weight_kg: 13.1, breed: null });
+    expect(edited.json()).toMatchObject({ name: "Mel", neutered: true, breed: null, birth_date: "2021-03-10" });
+    expect((await edit(owner, {})).statusCode).toBe(400);
+    expect((await edit(owner, { birth_date: "2999-01-01" })).statusCode).toBe(400);
+    expect((await edit(owner, { name: "" })).statusCode).toBe(400);
+    expect((await edit(other, { name: "Mine now" })).statusCode).toBe(404);
+
+    const me = await app.inject({ method: "PATCH", url: "/v1/me", headers: owner, payload: { name: "Gustavo" } });
+    expect(me.json()).toMatchObject({ email: "profile@example.com", name: "Gustavo" });
+
+    const pw = (payload: object) => app.inject({ method: "POST", url: "/v1/me/password", headers: owner, payload });
+    expect((await pw({ current_password: "wrong password!", new_password: "another long one" })).statusCode).toBe(403);
+    expect((await pw({ current_password: "correct horse battery", new_password: "short" })).statusCode).toBe(400);
+    expect((await pw({ current_password: "correct horse battery", new_password: "another long one" })).statusCode).toBe(204);
+    const login = (password: string) =>
+      app.inject({ method: "POST", url: "/v1/auth/login", payload: { email: "profile@example.com", password } });
+    expect((await login("correct horse battery")).statusCode).toBe(401);
+    expect((await login("another long one")).statusCode).toBe(200);
+
+    expect((await app.inject({ method: "DELETE", url: `/v1/dogs/${mel.id}`, headers: other })).statusCode).toBe(404);
+    expect((await app.inject({ method: "DELETE", url: `/v1/dogs/${mel.id}`, headers: owner })).statusCode).toBe(204);
+    expect((await app.inject({ method: "GET", url: "/v1/dogs", headers: owner })).json()).toEqual([]);
+  });
+
+  it("several dogs and collars: re-pair, move a collar between dogs, unpair", async () => {
+    const owner = await user("pack@example.com");
+    const { dogId: thor, device: oldToken } = await dogWithDevice(owner, "AA:00:00:00:00:21");
+    const mel = (await app.inject({ method: "POST", url: "/v1/dogs", headers: owner, payload: { name: "Mel" } })).json().id;
+    const pair = (dog: string, serial: string, headers = owner) =>
+      app.inject({ method: "POST", url: `/v1/dogs/${dog}/devices`, headers, payload: { serial, name: "Blue" } });
+    const devices = async (dog: string) =>
+      (await app.inject({ method: "GET", url: `/v1/dogs/${dog}/devices`, headers: owner })).json();
+    const total = async (dog: string) =>
+      (await app.inject({ method: "GET", url: `/v1/dogs/${dog}/days/2026-10-05`, headers: owner })).json().totals.walking_s;
+
+    const week = Array.from({ length: 60 }, (_, i) => minute(spTs("2026-10-05", 8 * 60 + i), 30));
+    expect((await ingest(oldToken, week)).json().inserted).toBe(60);
+
+    // a new phone pairs the same collar to the same dog: same row, new token, no double count
+    const again = await pair(thor, "AA:00:00:00:00:21");
+    expect(again.statusCode).toBe(201);
+    const newToken = { authorization: `Bearer ${again.json().token}` };
+    expect((await ingest(oldToken, week)).statusCode).toBe(401);
+    expect((await ingest(newToken, week)).json()).toMatchObject({ inserted: 0, duplicates: 60 });
+    expect(await devices(thor)).toMatchObject([{ serial: "AA:00:00:00:00:21", name: "Blue", battery_pct: 90 }]);
+
+    // a second collar for Mel, then Thor's collar moves to Mel too
+    expect((await pair(mel, "AA:00:00:00:00:22")).statusCode).toBe(201);
+    const moved = await pair(mel, "AA:00:00:00:00:21");
+    expect(moved.statusCode).toBe(201);
+    const melToken = { authorization: `Bearer ${moved.json().token}` };
+    expect((await ingest(newToken, week)).statusCode).toBe(401); // Thor's row is retired
+    // the collar re-sends Thor's minutes: kept with Thor, not credited to Mel
+    expect((await ingest(melToken, week)).json()).toMatchObject({ inserted: 0, before_pairing: 60 });
+    expect(await total(thor)).toBe(1800);
+    expect(await total(mel)).toBe(0);
+    expect(await devices(thor)).toEqual([]);
+    expect((await devices(mel)).map((d: { serial: string }) => d.serial)).toEqual([
+      "AA:00:00:00:00:22",
+      "AA:00:00:00:00:21",
+    ]);
+
+    // another account cannot take an active collar; after unpairing it can
+    const neighbor = await user("neighbor@example.com");
+    const nDog = (await app.inject({ method: "POST", url: "/v1/dogs", headers: neighbor, payload: { name: "Bob" } })).json().id;
+    expect((await pair(nDog, "AA:00:00:00:00:21", neighbor)).statusCode).toBe(409);
+    const melCollar = (await devices(mel)).find((d: { serial: string }) => d.serial === "AA:00:00:00:00:21");
+    expect((await app.inject({ method: "DELETE", url: `/v1/devices/${melCollar.id}`, headers: neighbor })).statusCode).toBe(404);
+    expect((await app.inject({ method: "DELETE", url: `/v1/devices/${melCollar.id}`, headers: owner })).statusCode).toBe(204);
+    expect((await ingest(melToken, week)).statusCode).toBe(401);
+    expect((await pair(nDog, "AA:00:00:00:00:21", neighbor)).statusCode).toBe(201);
+  });
+
   it("rate-limits login attempts per IP", async () => {
     const limited = await buildApp({ pool, jwtSecret: "test-secret-0123456789", authAttemptsPer15Min: 3 });
     const tryLogin = () =>

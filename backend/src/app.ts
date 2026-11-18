@@ -111,45 +111,167 @@ export async function buildApp({
   });
 
   // ------------------------------------------------------------------ dogs / devices
+  // profile fields (nullable: PATCH with null clears one)
+  const dogFields = {
+    name: z.string().trim().min(1).max(60),
+    timezone: z.string().refine(isValidTimeZone, "unknown IANA time zone"),
+    birth_date: z
+      .string()
+      .date()
+      .refine((d) => d <= new Date().toISOString().slice(0, 10) && d >= "1990-01-01", "birth date out of range")
+      .nullable(),
+    weight_kg: z.number().positive().max(150).nullable(),
+    sex: z.enum(["male", "female"]).nullable(),
+    neutered: z.boolean().nullable(),
+    breed: z.string().trim().max(80).nullable(),
+  };
   const dogBody = z.object({
-    name: z.string().min(1).max(60),
-    timezone: z.string().refine(isValidTimeZone, "unknown IANA time zone").default("America/Sao_Paulo"),
-    birth_date: z.string().date().optional(),
-    weight_kg: z.number().positive().max(150).optional(),
+    ...dogFields,
+    timezone: dogFields.timezone.default("America/Sao_Paulo"),
+    birth_date: dogFields.birth_date.optional(),
+    weight_kg: dogFields.weight_kg.optional(),
+    sex: dogFields.sex.optional(),
+    neutered: dogFields.neutered.optional(),
+    breed: dogFields.breed.optional(),
   });
+  const dogPatch = z.object(dogFields).partial().refine((b) => Object.keys(b).length > 0, "nothing to change");
+  const DOG_COLUMNS = "id, name, timezone, birth_date, weight_kg, sex, neutered, breed";
   const idParam = z.object({ id: z.coerce.number().int().positive() });
 
   app.post("/v1/dogs", { preHandler: requireUser, schema: { body: dogBody } }, async (req, reply) => {
     const b = req.body;
     const r = await pool.query(
-      `INSERT INTO dogs (user_id, name, timezone, birth_date, weight_kg) VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, name, timezone, birth_date, weight_kg`,
-      [userId(req), b.name, b.timezone, b.birth_date ?? null, b.weight_kg ?? null],
+      `INSERT INTO dogs (user_id, name, timezone, birth_date, weight_kg, sex, neutered, breed)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING ${DOG_COLUMNS}`,
+      [
+        userId(req),
+        b.name,
+        b.timezone,
+        b.birth_date ?? null,
+        b.weight_kg ?? null,
+        b.sex ?? null,
+        b.neutered ?? null,
+        b.breed || null,
+      ],
     );
     return reply.code(201).send(r.rows[0]);
   });
 
+  app.patch(
+    "/v1/dogs/:id",
+    { preHandler: requireUser, schema: { params: idParam, body: dogPatch } },
+    async (req, reply) => {
+      if (!(await ownDog(req, reply, req.params.id))) return;
+      // column names come from the zod schema keys, never from the client
+      const entries = Object.entries(req.body).map(([k, v]) => [k, k === "breed" && v === "" ? null : v] as const);
+      const r = await pool.query(
+        `UPDATE dogs SET ${entries.map(([k], i) => `${k} = $${i + 2}`).join(", ")}
+          WHERE id = $1 RETURNING ${DOG_COLUMNS}`,
+        [req.params.id, ...entries.map(([, v]) => v)],
+      );
+      return r.rows[0];
+    },
+  );
+
+  // removes the dog with its collars, minutes, metrics and alerts (ON DELETE CASCADE)
+  app.delete("/v1/dogs/:id", { preHandler: requireUser, schema: { params: idParam } }, async (req, reply) => {
+    if (!(await ownDog(req, reply, req.params.id))) return;
+    await pool.query("DELETE FROM dogs WHERE id = $1", [req.params.id]);
+    return reply.code(204).send();
+  });
+
   app.get("/v1/dogs", { preHandler: requireUser }, async (req) => {
     const r = await pool.query(
-      "SELECT id, name, timezone, birth_date, weight_kg FROM dogs WHERE user_id = $1 ORDER BY id",
+      `SELECT ${DOG_COLUMNS} FROM dogs WHERE user_id = $1 ORDER BY id`,
       [userId(req)],
     );
     return r.rows;
   });
 
+  // Pairing. The same collar again on the same dog (new phone, reinstall) keeps its device
+  // row and gets a new token, so re-sent minutes stay duplicates instead of doubling. On
+  // another of the owner's dogs it starts a new row from now. Another account's active
+  // collar is refused: its owner unpairs it first.
   app.post(
     "/v1/dogs/:id/devices",
-    { preHandler: requireUser, schema: { params: idParam, body: z.object({ serial: z.string().min(3).max(64) }) } },
+    {
+      preHandler: requireUser,
+      schema: {
+        params: idParam,
+        body: z.object({ serial: z.string().min(3).max(64), name: z.string().trim().max(40).optional() }),
+      },
+    },
     async (req, reply) => {
       if (!(await ownDog(req, reply, req.params.id))) return;
       const { token, hash } = newDeviceToken();
-      const r = await pool.query<{ id: string }>(
-        "INSERT INTO devices (dog_id, serial, token_hash) VALUES ($1, $2, $3) ON CONFLICT (serial) DO NOTHING RETURNING id",
-        [req.params.id, req.body.serial, hash],
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        const cur = (
+          await client.query<{ id: string; dog_id: string; user_id: string }>(
+            `SELECT d.id, d.dog_id, g.user_id FROM devices d JOIN dogs g ON g.id = d.dog_id
+              WHERE d.serial = $1 AND d.retired_at IS NULL FOR UPDATE OF d`,
+            [req.body.serial],
+          )
+        ).rows[0];
+        if (cur && cur.user_id !== userId(req)) {
+          await client.query("ROLLBACK");
+          return reply.code(409).send({ error: "this collar is paired with another account" });
+        }
+        let deviceId: string;
+        if (cur && Number(cur.dog_id) === req.params.id) {
+          await client.query("UPDATE devices SET token_hash = $2, name = COALESCE($3, name) WHERE id = $1", [
+            cur.id,
+            hash,
+            req.body.name ?? null,
+          ]);
+          deviceId = cur.id;
+        } else {
+          if (cur) await client.query("UPDATE devices SET retired_at = now() WHERE id = $1", [cur.id]);
+          const r = await client.query<{ id: string }>(
+            `INSERT INTO devices (dog_id, serial, token_hash, name, active_from)
+             VALUES ($1, $2, $3, $4, CASE WHEN $5 THEN now() END) RETURNING id`,
+            [req.params.id, req.body.serial, hash, req.body.name ?? null, Boolean(cur)],
+          );
+          deviceId = r.rows[0]!.id;
+        }
+        await client.query("COMMIT");
+        // The token is returned once; the app hands it to the base station during setup.
+        return reply.code(201).send({ device_id: deviceId, token });
+      } catch (err) {
+        await client.query("ROLLBACK");
+        throw err;
+      } finally {
+        client.release();
+      }
+    },
+  );
+
+  app.get("/v1/dogs/:id/devices", { preHandler: requireUser, schema: { params: idParam } }, async (req, reply) => {
+    if (!(await ownDog(req, reply, req.params.id))) return;
+    const r = await pool.query(
+      `SELECT d.id, d.serial, d.name, d.created_at,
+              (SELECT max(a.minute_ts) FROM activity_minute a WHERE a.device_id = d.id) AS last_minute,
+              (SELECT a.battery_pct FROM activity_minute a WHERE a.device_id = d.id
+                ORDER BY a.minute_ts DESC LIMIT 1) AS battery_pct
+         FROM devices d WHERE d.dog_id = $1 AND d.retired_at IS NULL ORDER BY d.id`,
+      [req.params.id],
+    );
+    return r.rows;
+  });
+
+  // Unpair: the token stops working; the minutes it recorded stay with the dog.
+  app.delete(
+    "/v1/devices/:id",
+    { preHandler: requireUser, schema: { params: idParam } },
+    async (req, reply) => {
+      const r = await pool.query(
+        `UPDATE devices d SET retired_at = now() FROM dogs g
+          WHERE d.id = $1 AND g.id = d.dog_id AND g.user_id = $2 AND d.retired_at IS NULL`,
+        [req.params.id, userId(req)],
       );
-      if (!r.rows[0]) return reply.code(409).send({ error: "device already registered" });
-      // The token is returned once; the app hands it to the base station during setup.
-      return reply.code(201).send({ device_id: r.rows[0].id, token });
+      return r.rowCount ? reply.code(204).send() : reply.code(404).send({ error: "collar not found" });
     },
   );
 
@@ -168,7 +290,12 @@ export async function buildApp({
       const auth = req.headers.authorization ?? "";
       const token = auth.startsWith("Bearer dev_") ? auth.slice(7) : null;
       const dev = token
-        ? (await pool.query<{ id: string }>("SELECT id FROM devices WHERE token_hash = $1", [hashToken(token)])).rows[0]
+        ? (
+            await pool.query<{ id: string; active_from: Date | null }>(
+              "SELECT id, active_from FROM devices WHERE token_hash = $1 AND retired_at IS NULL",
+              [hashToken(token)],
+            )
+          ).rows[0]
         : undefined;
       if (!dev) return reply.code(401).send({ error: "invalid device token" });
 
@@ -178,7 +305,11 @@ export async function buildApp({
       } catch (err) {
         return reply.code(400).send({ error: (err as Error).message });
       }
-      const { records, rejected } = decoded;
+      const { rejected } = decoded;
+      // a collar moved from another dog still holds that dog's minutes: not this dog's
+      const from = dev.active_from ? Math.floor(dev.active_from.getTime() / 1000 / 60) * 60 : 0;
+      const records = decoded.records.filter((r) => r.minuteTs >= from);
+      const beforePairing = decoded.records.length - records.length;
       if (records.length > MAX_RECORDS_PER_BATCH) return reply.code(413).send({ error: "batch too large" });
 
       let inserted = 0;
@@ -205,9 +336,10 @@ export async function buildApp({
         inserted = res.rowCount ?? 0;
       }
       return {
-        received: records.length + rejected.length,
+        received: decoded.records.length + rejected.length,
         inserted,
         duplicates: records.length - inserted,
+        before_pairing: beforePairing,
         rejected,
       };
     },
@@ -344,12 +476,47 @@ export async function buildApp({
 
   // ------------------------------------------------------------------ privacy (LGPD)
   // ------------------------------------------------------------------ account / LGPD
-  const ME_COLUMNS = "id, email, created_at, consent_version, consent_at, research_opt_in";
+  const ME_COLUMNS = "id, email, name, created_at, consent_version, consent_at, research_opt_in";
 
   app.get("/v1/me", { preHandler: requireUser }, async (req, reply) => {
     const r = await pool.query(`SELECT ${ME_COLUMNS} FROM users WHERE id = $1`, [userId(req)]);
     return r.rows[0] ?? reply.code(404).send({ error: "user not found" });
   });
+
+  app.patch(
+    "/v1/me",
+    { preHandler: requireUser, schema: { body: z.object({ name: z.string().trim().max(80).nullable() }) } },
+    async (req) => {
+      const r = await pool.query(`UPDATE users SET name = $2 WHERE id = $1 RETURNING ${ME_COLUMNS}`, [
+        userId(req),
+        req.body.name || null,
+      ]);
+      return r.rows[0];
+    },
+  );
+
+  const passwordBody = z.object({
+    current_password: z.string().min(1).max(200),
+    new_password: z.string().min(10).max(200),
+  });
+  app.post(
+    "/v1/me/password",
+    { preHandler: [requireUser, limitAuth], schema: { body: passwordBody } },
+    async (req, reply) => {
+      const r = await pool.query<{ password_hash: string }>("SELECT password_hash FROM users WHERE id = $1", [
+        userId(req),
+      ]);
+      const user = r.rows[0];
+      if (!user || !(await verifyPassword(req.body.current_password, user.password_hash))) {
+        return reply.code(403).send({ error: "current password is wrong" });
+      }
+      await pool.query("UPDATE users SET password_hash = $2 WHERE id = $1", [
+        userId(req),
+        await hashPassword(req.body.new_password),
+      ]);
+      return reply.code(204).send();
+    },
+  );
 
   const consentBody = z.object({
     version: z.number().int().positive(),
@@ -392,7 +559,10 @@ export async function buildApp({
     return {
       user: (await q(`SELECT ${ME_COLUMNS} FROM users WHERE id = $1`))[0],
       dogs: await q("SELECT * FROM dogs WHERE user_id = $1"),
-      devices: await q("SELECT d.id, d.dog_id, d.serial, d.created_at FROM devices d JOIN dogs g ON g.id = d.dog_id WHERE g.user_id = $1"),
+      devices: await q(
+        `SELECT d.id, d.dog_id, d.serial, d.name, d.created_at, d.active_from, d.retired_at
+           FROM devices d JOIN dogs g ON g.id = d.dog_id WHERE g.user_id = $1`,
+      ),
       daily_metrics: await q("SELECT m.* FROM daily_metrics m JOIN dogs g ON g.id = m.dog_id WHERE g.user_id = $1"),
       alerts: await q("SELECT a.* FROM alerts a JOIN dogs g ON g.id = a.dog_id WHERE g.user_id = $1"),
       push_tokens: await q("SELECT platform, updated_at FROM push_tokens WHERE user_id = $1"),
