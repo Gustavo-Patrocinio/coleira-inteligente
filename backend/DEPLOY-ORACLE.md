@@ -5,9 +5,10 @@ an Always Free ARM VM runs the whole stack (database, API, HTTPS, nightly backup
 encrypted copy of the backups goes to OCI Object Storage. Cost: R$ 0 inside the Always Free
 limits (Ampere A1 up to 4 OCPU / 24 GB in total, 200 GB of disks, 20 GB of Object Storage).
 
-> **Status (2026-11-18):** the setup script passes shellcheck, every image has an ARM64
-> build, and the encrypted off-site backup (copy, prune, restore, wrong passphrase refused)
-> was tested against a local S3 server. It has **not run on a real OCI VM yet**.
+> **Status (2026-11-18):** done end to end on a real VM (A1.Flex, 2 OCPU / 12 GB, Ubuntu
+> 24.04 aarch64): the script set everything up, Caddy got the certificate, register / me /
+> delete worked over HTTPS and the first nightly dump was written. The off-site copy was
+> tested against a local S3 server; on OCI Object Storage it is still to be switched on.
 
 ## 1. Create the VM
 
@@ -151,7 +152,7 @@ The VM restarts on its own after kernel updates now and then; every container ha
 
 | Problem | Fix |
 |---|---|
-| The script stops at "Not answering yet" | Security List rules from step 2; `docker compose logs caddy` shows the Let's Encrypt error |
+| The script stops at "Not answering yet" | Security List rules from step 2 (`docker compose logs caddy`: *Timeout during connect (likely firewall problem)*). After adding them, `docker compose restart caddy` retries at once instead of waiting for its back-off |
 | `permission denied` on `docker` | log out and back in (the script added you to the `docker` group) |
 | `offsite: copy FAILED` | wrong endpoint/namespace/keys in `.env`, or the bucket is not in the root compartment |
 | `bad password?` when restoring | a different `BACKUP_PASSPHRASE` from the one that made the copy |
