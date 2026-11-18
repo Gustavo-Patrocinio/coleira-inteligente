@@ -36,8 +36,8 @@ The server also keeps standard technical logs (IP address, time, request path) f
 [30] days, for security and to fix errors.
 
 **Not collected:** location (GPS is not in the collar), microphone or camera data, contacts,
-other apps. The app asks for Bluetooth permission to talk to the collar, and for camera and
-microphone only in "Help improve recognition".
+other apps. The app asks for Bluetooth permission to talk to the collar, for the camera only
+in "Help improve recognition" (videos are recorded without sound), and for notifications.
 
 ## Videos and raw recordings ("Help improve recognition")
 
