@@ -32,6 +32,8 @@ flutter test        # 35 tests, no device needed
 
 ## Run on your iPhone (from the MacBook)
 
+Full step-by-step guide, from a Mac with nothing installed: **[BUILD_MAC.md](BUILD_MAC.md)**. Short version:
+
 1. Install Xcode (App Store) and Flutter on the Mac
    (`git clone https://github.com/flutter/flutter.git -b stable ~/flutter`, add
    `~/flutter/bin` to the PATH), then `flutter doctor`.
