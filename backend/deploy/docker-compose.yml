@@ -40,7 +40,7 @@ services:
         condition: service_healthy
 
   caddy:
-    image: caddy:2.8.4-alpine
+    image: caddy:2.11.9-alpine
     restart: unless-stopped
     ports:
       - "80:80"
