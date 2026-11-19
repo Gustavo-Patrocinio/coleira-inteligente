@@ -67,6 +67,11 @@ services:
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
+        # the first dump waits for the api's migrations (a dump of an empty database at the
+        # very first start is useless; found by restore-check.sh)
+        until psql -h db -U collar -d collar -tAc "SELECT 1 FROM schema_migrations LIMIT 1" 2>/dev/null | grep -q 1; do
+          sleep 10
+        done
         while true; do
           f=/backups/collar-$$(date +%F).dump
           pg_dump -h db -U collar -Fc collar > $$f.tmp && mv $$f.tmp $$f && echo "backup $$f"
