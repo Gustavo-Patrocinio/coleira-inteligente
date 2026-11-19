@@ -1,5 +1,9 @@
 # Weekly update PRs, so known vulnerabilities do not sit unnoticed (npm audit runs in CI too).
 # Minor and patch updates come grouped in one PR per ecosystem; majors come one by one.
+# Ignored on purpose (update by hand, deliberately):
+# - the TimescaleDB image: a Postgres major change needs a dump/restore of the data volume
+# - Node and @types/node majors: the server stays on Node 22 LTS
+# - TypeScript majors (7 is the native rewrite; not needed here)
 version: 2
 updates:
   - package-ecosystem: npm
@@ -9,6 +13,11 @@ updates:
     groups:
       backend-minor:
         update-types: [minor, patch]
+    ignore:
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: pub
     directory: /app
     schedule: { interval: weekly }
@@ -22,6 +31,11 @@ updates:
   - package-ecosystem: docker
     directory: /backend
     schedule: { interval: monthly }
+    ignore:
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: docker-compose
     directory: /backend/deploy
     schedule: { interval: monthly }
+    ignore:
+      - dependency-name: timescale/timescaledb
