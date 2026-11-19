@@ -1,6 +1,6 @@
 # Collar backend image (Phase 4). Runs the TypeScript sources with tsx: no build step,
 # so what runs in production is exactly what the tests ran.
-FROM node:22.12-alpine
+FROM node:22.23-alpine
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund && npm cache clean --force
