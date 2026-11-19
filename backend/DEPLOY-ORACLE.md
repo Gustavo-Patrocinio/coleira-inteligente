@@ -145,9 +145,19 @@ database (DEPLOY.md). The phones keep working once the domain points at the new 
 | Logs | `docker compose logs -f api` |
 | Restart everything | `docker compose --profile offsite restart` |
 | Disk and memory | `df -h /` and `free -h` |
+| Check everything end to end (from any computer) | `bash smoke-test.sh https://<domain>` |
+| Restore drill from the off-site copies (monthly) | `bash restore-check.sh` |
 
 The VM restarts on its own after kernel updates now and then; every container has
 `restart: unless-stopped` and comes back by itself.
+
+**Get an email when it is down:** on GitHub, the repository's *Settings → Secrets and
+variables → Actions → Variables → New repository variable*: `HEALTH_URL` =
+`https://<domain>/health`. The *Uptime* workflow checks it every 30 minutes (including the
+database) and GitHub emails you when a run fails.
+
+**Password reset by email:** DEPLOY.md, *Email*; the SMTP lines go in the same `.env`, then
+`docker compose --profile offsite up -d api`.
 
 ## Something went wrong
 

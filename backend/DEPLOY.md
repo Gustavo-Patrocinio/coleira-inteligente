@@ -85,6 +85,14 @@ docker compose run --rm offsite copy safe:collar-2026-11-17.dump /backups/   # b
 
 Oracle Cloud specifics (bucket, keys, endpoint): [DEPLOY-ORACLE.md](DEPLOY-ORACLE.md), step 5.
 
+**Restore drill:** `bash restore-check.sh` restores the newest off-site dump into a throwaway
+database, counts the rows of the main tables and drops it again; the live database is not
+touched. Run it after setting up and then monthly: it is how a backup that would not restore
+gets noticed (the first one on our server was empty, see the backup service's comment).
+
+**End-to-end check:** `bash smoke-test.sh https://<domain>` from any computer: health,
+register, a dog, password change, forgot password, delete. It cleans up after itself.
+
 Restore into a fresh database (TimescaleDB needs the pre/post restore calls):
 
 ```bash

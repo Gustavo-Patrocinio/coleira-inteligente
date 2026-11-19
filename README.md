@@ -16,9 +16,10 @@ product, not a demo: every decision is measured, written down as an
 ![System architecture](docs/images/architecture.svg)
 
 > **Status:** Phase 0 (ML pipeline) ✅ complete. Software for Phases 1–4 is written and
-> tested without hardware (firmware builds and is host-tested, backend runs on a real
-> TimescaleDB, the Flutter app has 19 tests); the board is on the way to validate it on a
-> real dog. See the [roadmap](#roadmap).
+> tested without hardware (firmware builds and is host-tested, the backend has 33 tests on
+> a real TimescaleDB and runs on a free Oracle Cloud VM with HTTPS and encrypted off-site
+> backups, the Flutter app has 41 tests); the board is on the way to validate it on a real
+> dog. See the [roadmap](#roadmap).
 
 ---
 
@@ -205,7 +206,7 @@ uses real signal, shows the behavior on screen, and simulates clock drift and pa
 | 1 | Collect and label data from real dogs | ≥ 2 h labeled from ≥ 5 dogs, ≥ 3 min per class, < 1% packet loss | 🚧 labeler, logger firmware, PC recorder and phone collection mode ready; hardware shipping |
 | 2 | Model running on the chip | F1 ≥ 0.85 (states), ≥ 0.70 (events) on unseen dogs, inference < 50 ms | 🚧 firmware builds, host-tested against training; needs the board and our own data |
 | 3 | Wireless, full day on battery, OTA | 24 h recorded, lossless sync, OTA tested | 🚧 flash storage + BLE sync (firmware, app, PC base-station emulator); OTA variant (MCUboot + BLE DFU) builds; OTA on the board and power measurements pending |
-| 4 | Backend, alerts, home base station | a real alert fires; no duplicates; data arrives on its own | 🚧 backend + alerts done (19 tests on a real TimescaleDB); ESP32 base station and push pending |
+| 4 | Backend, alerts, home base station | a real alert fires; no duplicates; data arrives on its own | 🚧 backend + alerts done and deployed (accounts with password reset, several dogs and collars, encrypted off-site backups, uptime check); push code done (needs a Firebase project); ESP32 base station pending |
 | 5 | Two-level classification for battery life | ≥ 14 days measured in the field | |
 | 6 | Open release + beta | 10+ owners for a month, 3+ collars built by others from the docs | |
 | 7 | Product (later goal) | production design, certification, viable cost per unit | |
@@ -225,8 +226,9 @@ gauge and an ESP32 base station.
 assembly, pairing, fitting on the dog) and a [3D-printable case](hardware/cad/README.md)
 (parametric, STEP + STL, for 16/20/25 mm collars, ~20 g in total). Ready-made firmware files
 come with each GitHub release, flashed by drag-and-drop ([flashing guide](docs/flashing.md));
-problems: [troubleshooting](docs/troubleshooting.md); running a server for others:
-[privacy policy template](docs/privacy-policy.md).
+problems: [troubleshooting](docs/troubleshooting.md); running a server:
+[deploy guide](backend/DEPLOY.md) (any VPS) or [step by step on Oracle Cloud's free tier](backend/DEPLOY-ORACLE.md),
+and for others' data, the [privacy policy template](docs/privacy-policy.md).
 
 ![enclosure v1](docs/images/enclosure_v1.png)
 
