@@ -81,7 +81,7 @@ services:
     # Optional (DEPLOY.md, step 5): encrypted copy of ./backups in object storage, so a dead
     # server does not take the backups with it. Start with: docker compose --profile offsite up -d
     profiles: ["offsite"]
-    image: rclone/rclone:1.68.2
+    image: rclone/rclone:1.76.0
     restart: unless-stopped
     entrypoint: ["/bin/sh", "/offsite.sh"]
     environment:
