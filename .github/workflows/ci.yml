@@ -55,6 +55,9 @@ jobs:
           cache: npm
           cache-dependency-path: backend/package-lock.json
       - run: npm ci
+      # known vulnerabilities in what the server runs fail the build (dev tools: report only)
+      - run: npm audit --omit=dev --audit-level=high
+      - run: npm audit --audit-level=critical || true
       - run: npm run typecheck
       - run: npm test
 
