@@ -3,7 +3,10 @@
  *
  * Users authenticate with a JWT (Authorization: Bearer <jwt>). Collars upload through the
  * base station or the app with a per-device token (Authorization: Bearer dev_...).
+ * Login tokens carry the user's token_version: changing or resetting the password bumps it,
+ * which signs out every other phone.
  */
+import { randomInt, timingSafeEqual } from "node:crypto";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import jwt from "@fastify/jwt";
 import { serializerCompiler, validatorCompiler, type ZodTypeProvider } from "fastify-type-provider-zod";
@@ -13,6 +16,7 @@ import { CLASS_COLUMNS, decodeRecords } from "./summary.js";
 import { hashPassword, hashToken, newDeviceToken, verifyPassword } from "./security.js";
 import { localParts } from "./metrics.js";
 import { sleepSummary } from "./sleep.js";
+import { type Mailer, resetEmail } from "./mail.js";
 
 export interface AppOptions {
   pool: pg.Pool;
@@ -22,12 +26,15 @@ export interface AppOptions {
   trustProxy?: boolean;
   /** Login/register attempts allowed per IP per 15 minutes. */
   authAttemptsPer15Min?: number;
+  /** Sends password reset codes; without it the reset endpoints answer 501. */
+  mailer?: Mailer;
 }
 
 declare module "@fastify/jwt" {
   interface FastifyJWT {
-    payload: { sub: string };
-    user: { sub: string };
+    // v = users.token_version when the token was issued (absent in tokens from before it)
+    payload: { sub: string; v?: number };
+    user: { sub: string; v?: number };
   }
 }
 
@@ -39,6 +46,7 @@ export async function buildApp({
   logger = false,
   trustProxy = false,
   authAttemptsPer15Min = 20,
+  mailer,
 }: AppOptions) {
   const app = Fastify({ logger, trustProxy, bodyLimit: 1024 * 1024 }).withTypeProvider<ZodTypeProvider>();
   app.setValidatorCompiler(validatorCompiler);
@@ -51,7 +59,15 @@ export async function buildApp({
     } catch {
       return reply.code(401).send({ error: "unauthorized" });
     }
+    // a deleted account, or a password changed since this token was issued
+    const r = await pool.query<{ token_version: number }>("SELECT token_version FROM users WHERE id = $1", [
+      req.user.sub,
+    ]);
+    if (!r.rows[0] || r.rows[0].token_version !== (req.user.v ?? 0)) {
+      return reply.code(401).send({ error: "unauthorized" });
+    }
   };
+  const tokenFor = (id: string, version: number) => app.jwt.sign({ sub: id, v: version });
   const userId = (req: FastifyRequest) => req.user.sub;
 
   /** 404 unless the dog belongs to the user (never reveal other users' dogs). */
@@ -67,7 +83,15 @@ export async function buildApp({
     return r.rows[0];
   }
 
-  app.get("/health", async () => ({ ok: true }));
+  // also checks the database, so an uptime monitor notices when it is down
+  app.get("/health", async (_req, reply) => {
+    try {
+      await pool.query("SELECT 1");
+      return { ok: true };
+    } catch {
+      return reply.code(503).send({ ok: false, error: "database unavailable" });
+    }
+  });
 
   // ------------------------------------------------------------------ auth
   // Small per-IP limiter against password guessing (one process, so memory is enough).
@@ -95,19 +119,88 @@ export async function buildApp({
       [email, hash],
     );
     if (!r.rows[0]) return reply.code(409).send({ error: "email already registered" });
-    return reply.code(201).send({ token: app.jwt.sign({ sub: r.rows[0].id }) });
+    return reply.code(201).send({ token: tokenFor(r.rows[0].id, 0) });
   });
 
   app.post("/v1/auth/login", { preHandler: limitAuth, schema: { body: credentials } }, async (req, reply) => {
-    const r = await pool.query<{ id: string; password_hash: string }>(
-      "SELECT id, password_hash FROM users WHERE email = $1",
+    const r = await pool.query<{ id: string; password_hash: string; token_version: number }>(
+      "SELECT id, password_hash, token_version FROM users WHERE email = $1",
       [req.body.email.toLowerCase()],
     );
     const user = r.rows[0];
     if (!user || !(await verifyPassword(req.body.password, user.password_hash))) {
       return reply.code(401).send({ error: "invalid email or password" });
     }
-    return { token: app.jwt.sign({ sub: user.id }) };
+    return { token: tokenFor(user.id, user.token_version) };
+  });
+
+  // Password reset by email: a 6-digit code (stored as a hash), 15 minutes, 5 guesses.
+  // The answer never says whether the email has an account.
+  const RESET_MINUTES = 15;
+  const RESET_MAX_ATTEMPTS = 5;
+  const resetHash = (userIdValue: string, code: string) => hashToken(`${userIdValue}:${code}`);
+  const noEmail = (reply: FastifyReply) =>
+    reply.code(501).send({ error: "this server cannot send email; ask whoever runs it to reset your password" });
+
+  app.post(
+    "/v1/auth/forgot",
+    { preHandler: limitAuth, schema: { body: z.object({ email: z.string().email().max(200) }) } },
+    async (req, reply) => {
+      if (!mailer) return noEmail(reply);
+      const email = req.body.email.toLowerCase();
+      const r = await pool.query<{ id: string }>("SELECT id FROM users WHERE email = $1", [email]);
+      const user = r.rows[0];
+      if (user) {
+        const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
+        // a new code replaces the old one, but not more than once a minute (no email flooding)
+        const saved = await pool.query(
+          `INSERT INTO password_resets (user_id, code_hash, expires_at)
+           VALUES ($1, $2, now() + make_interval(mins => $3))
+           ON CONFLICT (user_id) DO UPDATE
+             SET code_hash = EXCLUDED.code_hash, expires_at = EXCLUDED.expires_at, attempts = 0, created_at = now()
+             WHERE password_resets.created_at < now() - interval '1 minute'
+           RETURNING user_id`,
+          [user.id, resetHash(user.id, code), RESET_MINUTES],
+        );
+        if (saved.rowCount) {
+          try {
+            await mailer.send(resetEmail(email, code));
+          } catch (err) {
+            req.log.error(err, "could not send the reset email");
+          }
+        }
+      }
+      return reply.code(202).send({ ok: true });
+    },
+  );
+
+  const resetBody = z.object({
+    email: z.string().email().max(200),
+    code: z.string().regex(/^\d{6}$/),
+    new_password: z.string().min(10).max(200),
+  });
+  app.post("/v1/auth/reset", { preHandler: limitAuth, schema: { body: resetBody } }, async (req, reply) => {
+    if (!mailer) return noEmail(reply);
+    const bad = () => reply.code(400).send({ error: "invalid or expired code" });
+    const r = await pool.query<{ id: string; code_hash: string; attempts: number; expired: boolean }>(
+      `SELECT u.id, p.code_hash, p.attempts, p.expires_at < now() AS expired
+         FROM users u JOIN password_resets p ON p.user_id = u.id WHERE u.email = $1`,
+      [req.body.email.toLowerCase()],
+    );
+    const row = r.rows[0];
+    if (!row || row.expired || row.attempts >= RESET_MAX_ATTEMPTS) return bad();
+    const expected = Buffer.from(row.code_hash);
+    const actual = Buffer.from(resetHash(row.id, req.body.code));
+    if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) {
+      await pool.query("UPDATE password_resets SET attempts = attempts + 1 WHERE user_id = $1", [row.id]);
+      return bad();
+    }
+    const u = await pool.query<{ token_version: number }>(
+      "UPDATE users SET password_hash = $2, token_version = token_version + 1 WHERE id = $1 RETURNING token_version",
+      [row.id, await hashPassword(req.body.new_password)],
+    );
+    await pool.query("DELETE FROM password_resets WHERE user_id = $1", [row.id]);
+    return { token: tokenFor(row.id, u.rows[0]!.token_version) };
   });
 
   // ------------------------------------------------------------------ dogs / devices
@@ -510,11 +603,12 @@ export async function buildApp({
       if (!user || !(await verifyPassword(req.body.current_password, user.password_hash))) {
         return reply.code(403).send({ error: "current password is wrong" });
       }
-      await pool.query("UPDATE users SET password_hash = $2 WHERE id = $1", [
-        userId(req),
-        await hashPassword(req.body.new_password),
-      ]);
-      return reply.code(204).send();
+      // signs out every other phone; this one gets a fresh token
+      const u = await pool.query<{ token_version: number }>(
+        "UPDATE users SET password_hash = $2, token_version = token_version + 1 WHERE id = $1 RETURNING token_version",
+        [userId(req), await hashPassword(req.body.new_password)],
+      );
+      return { token: tokenFor(userId(req), u.rows[0]!.token_version) };
     },
   );
 

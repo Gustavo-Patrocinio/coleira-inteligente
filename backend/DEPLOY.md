@@ -117,11 +117,37 @@ The app must be built against the same Firebase project (`app/README.md`, *Push
 notifications*). Treat the JSON like a password: anyone holding it can send notifications to
 your users. It is not in git (`secrets/` is ignored).
 
-## 7. Security checklist
+## 7. Email: password reset (optional)
+
+Without it, someone who forgets their password cannot get back in on their own (the app says
+the server cannot send email, and you would have to change it for them in the database). With
+it, the app's *Forgot password?* emails a 6-digit code that lasts 15 minutes.
+
+1. An SMTP provider: any works (many have a free tier of a few hundred emails a day, plenty
+   here). Verify the sender address it asks you to, and copy its SMTP host, port, user and
+   password (often an "SMTP key", not your login password).
+2. In `deploy/.env`:
+
+   ```
+   SMTP_URL=smtps://<user>:<password>@<host>:465
+   MAIL_FROM=Smart Collar <the-verified-sender@example.com>
+   ```
+
+   Port 587 instead of 465: `smtp://...:587` (STARTTLS). Characters like `@` or `:` inside the
+   user or password must be URL-encoded (`@` → `%40`).
+3. `docker compose --profile offsite up -d api`. The log says `password reset by email on
+   (SMTP)`. Try it from the app's sign-in screen with your own account.
+
+The provider sees the recipient's email address and the code (privacy policy, *Who else sees
+it*).
+
+## 8. Security checklist
 
 - [ ] `.env` has long random `POSTGRES_PASSWORD` and `JWT_SECRET` (never commit it; changing
       `JWT_SECRET` logs everyone out)
 - [ ] Only ports 22, 80 and 443 open; SSH with keys, password login off
+- [ ] Dependencies without known vulnerabilities: `npm audit --omit=dev` in `backend/` (CI
+      fails on high/critical ones; Dependabot opens update PRs)
 - [ ] Unattended OS security updates on (`sudo apt install unattended-upgrades`)
 - [ ] Off-site backups on (`--profile offsite`), the passphrase saved outside the server,
       and a restore tested once

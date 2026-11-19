@@ -30,6 +30,7 @@
 | Per-minute activity: seconds still, walking, running, scratching, shaking, eating, drinking; battery level | the collar, through the app or the home base station | your dog's routine, trends and alerts |
 | Daily summaries, alerts and your "made sense / false alarm" answers | computed by the server; your answers | alerts, and improving them |
 | A notification token for your phone (only if you allow notifications) | the app, after the consent screen | send you a notification when an alert is created; removed when you sign out |
+| A password reset code (stored only as a hash, deleted when used or after 15 minutes) | the server, only when you tap *Forgot password?* | let you choose a new password |
 | Your consent: which version you accepted, when, and whether you opted in to research | you, on the first screen | proof of consent (LGPD art. 8) |
 
 The server also keeps standard technical logs (IP address, time, request path) for up to
@@ -69,6 +70,8 @@ talk to a veterinarian.
   notification token and the short lock-screen text (for example, "Thor scratched more than
   usual", without numbers); never your dog's minutes. If you deny notifications, nothing is
   sent to Firebase.
+- Password reset codes are sent by email through the operator's email provider
+  ([provider]), which sees your email address and the code. Only when you ask for one.
 - When the app checks for collar updates, it asks GitHub (github.com, where the firmware is
   published) for the newest release; GitHub sees your IP address, as with any website.
 

@@ -25,9 +25,11 @@ off-site backups, step by step: [DEPLOY-ORACLE.md](DEPLOY-ORACLE.md).
 
 | Method | Path | Auth | What it does |
 |---|---|---|---|
-| GET | `/health` | — | liveness |
+| GET | `/health` | — | liveness, including the database (503 when it is down) |
 | POST | `/v1/auth/register` | — | `{email, password}` → `{token}` (JWT, 30 days) |
 | POST | `/v1/auth/login` | — | `{email, password}` → `{token}` |
+| POST | `/v1/auth/forgot` | — | `{email}` → 202 always (never reveals whether the email has an account); emails a 6-digit code, at most one per minute. 501 when the server has no `SMTP_URL` |
+| POST | `/v1/auth/reset` | — | `{email, code, new_password}` → `{token}`. The code lasts 15 minutes and 5 wrong guesses; signs out every other phone |
 | POST | `/v1/dogs` | user | `{name, timezone, birth_date?, weight_kg?}` |
 | PATCH | `/v1/dogs/:id` | user | edit the profile: `name, sex (male\|female), neutered, breed, birth_date, weight_kg, timezone` (null clears) |
 | DELETE | `/v1/dogs/:id` | user | removes the dog with its collars, minutes, metrics and alerts |
@@ -43,14 +45,14 @@ off-site backups, step by step: [DEPLOY-ORACLE.md](DEPLOY-ORACLE.md).
 | POST | `/v1/alerts/:id/feedback` | user | `{feedback: useful \| false_alarm}` |
 | GET | `/v1/me` | user | account: email, accepted privacy notice version, research opt-in |
 | PATCH | `/v1/me` | user | `{name}` |
-| POST | `/v1/me/password` | user | `{current_password, new_password}` (10+ characters; rate-limited like login) |
+| POST | `/v1/me/password` | user | `{current_password, new_password}` → `{token}` (10+ characters; rate-limited like login). Every other phone is signed out; this one uses the new token |
 | PUT | `/v1/me/consent` | user | `{version, research_opt_in}`: records consent (LGPD) with a timestamp |
 | PUT | `/v1/me/push-token` | user | `{token, platform: android\|ios}`: this phone gets push notifications for new alerts (FCM; `DEPLOY.md`) |
 | DELETE | `/v1/me/push-token` | user | `{token}`: stop notifying this phone (sign-out) |
 | GET | `/v1/me/export` | user | all of the user's data as JSON (LGPD) |
 | DELETE | `/v1/me` | user | deletes the account and everything under it (LGPD) |
 
-Login and register are limited to 20 attempts per IP per 15 minutes (`TRUST_PROXY=true` behind
+Login, register, forgot and reset are limited to 20 attempts per IP per 15 minutes (`TRUST_PROXY=true` behind
 Caddy so the real client IP counts). User endpoints take `Authorization: Bearer <jwt>`; ingestion takes `Authorization: Bearer
 dev_...`. A dog that is not yours is a 404, never a 403, so IDs reveal nothing.
 
@@ -68,6 +70,9 @@ dev_...`. A dog that is not yours is a 404, never a 403, so IDs reveal nothing.
   New alerts become push notifications when FCM is configured (`src/push.ts`, `DEPLOY.md`):
   sent once per alert (`alerts.notified_at`), lock-screen text without numbers, tokens FCM
   reports as gone are deleted.
+- **Sessions:** login tokens (JWT, 30 days) carry `users.token_version`; changing or
+  resetting the password bumps it, so older tokens get 401 everywhere. Reset codes are stored
+  only as a hash (`password_resets`), one pending code per user.
 - **Storage:** `activity_minute` is a TimescaleDB hypertable (7-day chunks) with an hourly
   continuous aggregate (`activity_hourly`). Migrations are plain SQL in `migrations/`.
 

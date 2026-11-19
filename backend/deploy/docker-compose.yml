@@ -30,6 +30,9 @@ services:
       # push notifications: put the Firebase service account in ./secrets/fcm.json and set
       # FCM_SERVICE_ACCOUNT_FILE=/secrets/fcm.json in .env (DEPLOY.md, Push notifications)
       FCM_SERVICE_ACCOUNT_FILE: ${FCM_SERVICE_ACCOUNT_FILE:-}
+      # password reset codes by email (DEPLOY.md, Email); empty = reset by email off
+      SMTP_URL: ${SMTP_URL:-}
+      MAIL_FROM: ${MAIL_FROM:-}
     volumes:
       - ./secrets:/secrets:ro
     depends_on:

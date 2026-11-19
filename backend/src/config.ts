@@ -9,6 +9,9 @@ const schema = z.object({
   ALERTS_EVERY_MIN: z.coerce.number().int().min(0).default(60),
   // Firebase service account JSON (backend/DEPLOY.md, Push); unset = no push notifications
   FCM_SERVICE_ACCOUNT_FILE: z.string().optional(),
+  // outgoing email for password reset codes (DEPLOY.md, Email); unset = no reset by email
+  SMTP_URL: z.string().optional(),
+  MAIL_FROM: z.string().optional(),
   // "true" behind a reverse proxy (deploy/docker-compose.yml sets it)
   TRUST_PROXY: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
 });

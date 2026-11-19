@@ -8,6 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildApp } from "../src/app.js";
 import { createPool, migrate } from "../src/db.js";
 import { runAlertsJob } from "../src/jobs.js";
+import type { MailMessage } from "../src/mail.js";
 import type { PushMessage, PushResult, PushSender } from "../src/push.js";
 import { encodeRecords, type MinuteRecord } from "../src/summary.js";
 
@@ -282,7 +283,12 @@ describe.runIf(() => available)("API with a real database", () => {
     const pw = (payload: object) => app.inject({ method: "POST", url: "/v1/me/password", headers: owner, payload });
     expect((await pw({ current_password: "wrong password!", new_password: "another long one" })).statusCode).toBe(403);
     expect((await pw({ current_password: "correct horse battery", new_password: "short" })).statusCode).toBe(400);
-    expect((await pw({ current_password: "correct horse battery", new_password: "another long one" })).statusCode).toBe(204);
+    const changed = await pw({ current_password: "correct horse battery", new_password: "another long one" });
+    expect(changed.statusCode).toBe(200);
+    // the old token stops working (other phones are signed out); the answer brings a new one
+    expect((await app.inject({ method: "GET", url: "/v1/me", headers: owner })).statusCode).toBe(401);
+    owner.authorization = `Bearer ${changed.json().token}`;
+    expect((await app.inject({ method: "GET", url: "/v1/me", headers: owner })).statusCode).toBe(200);
     const login = (password: string) =>
       app.inject({ method: "POST", url: "/v1/auth/login", payload: { email: "profile@example.com", password } });
     expect((await login("correct horse battery")).statusCode).toBe(401);
@@ -340,6 +346,68 @@ describe.runIf(() => available)("API with a real database", () => {
     expect((await app.inject({ method: "DELETE", url: `/v1/devices/${melCollar.id}`, headers: owner })).statusCode).toBe(204);
     expect((await ingest(melToken, week)).statusCode).toBe(401);
     expect((await pair(nDog, "AA:00:00:00:00:21", neighbor)).statusCode).toBe(201);
+  });
+
+  it("health checks the database", async () => {
+    const r = await app.inject({ method: "GET", url: "/health" });
+    expect(r.statusCode).toBe(200);
+    expect(r.json()).toEqual({ ok: true });
+  });
+
+  it("password reset by email: one code, 15 minutes, 5 guesses, signs out other phones", async () => {
+    const sent: MailMessage[] = [];
+    const withMail = await buildApp({
+      pool,
+      jwtSecret: "test-secret-test-secret",
+      mailer: { send: async (m) => void sent.push(m) },
+    });
+    const post = (url: string, payload: object) => withMail.inject({ method: "POST", url, payload });
+    const email = "forgot@example.com";
+    const phone = await user(email); // a phone already signed in
+    const codeOf = (m: MailMessage) => /(\d{6})/.exec(m.text)![1]!;
+
+    // unknown email: same answer, nothing sent
+    expect((await post("/v1/auth/forgot", { email: "nobody@example.com" })).statusCode).toBe(202);
+    expect(sent).toHaveLength(0);
+
+    expect((await post("/v1/auth/forgot", { email: "Forgot@Example.com" })).statusCode).toBe(202);
+    expect(sent).toHaveLength(1);
+    expect(sent[0]!.to).toBe(email);
+    const code = codeOf(sent[0]!);
+    // asking again within a minute does not send (or replace) a code
+    expect((await post("/v1/auth/forgot", { email })).statusCode).toBe(202);
+    expect(sent).toHaveLength(1);
+
+    const reset = (c: string) => post("/v1/auth/reset", { email, code: c, new_password: "a brand new password" });
+    const wrong = code === "000000" ? "111111" : "000000";
+    expect((await reset(wrong)).statusCode).toBe(400);
+    const ok = await reset(code);
+    expect(ok.statusCode).toBe(200);
+    expect((await withMail.inject({ method: "GET", url: "/v1/me", headers: phone })).statusCode).toBe(401);
+    const fresh = { authorization: `Bearer ${ok.json().token}` };
+    expect((await withMail.inject({ method: "GET", url: "/v1/me", headers: fresh })).statusCode).toBe(200);
+    expect((await reset(code)).statusCode).toBe(400); // used once
+    const login = await post("/v1/auth/login", { email, password: "a brand new password" });
+    expect(login.statusCode).toBe(200);
+
+    // 5 wrong guesses burn the code, even the right one fails afterwards
+    await pool.query("UPDATE password_resets SET created_at = now() - interval '2 minutes'");
+    await post("/v1/auth/forgot", { email });
+    expect(sent).toHaveLength(2);
+    const second = codeOf(sent[1]!);
+    const miss = second === "000000" ? "111111" : "000000";
+    for (let i = 0; i < 5; i++) expect((await reset(miss)).statusCode).toBe(400);
+    expect((await reset(second)).statusCode).toBe(400);
+
+    // expired codes fail
+    await pool.query("DELETE FROM password_resets");
+    await post("/v1/auth/forgot", { email });
+    await pool.query("UPDATE password_resets SET expires_at = now() - interval '1 second'");
+    expect((await reset(codeOf(sent[2]!))).statusCode).toBe(400);
+    await withMail.close();
+
+    // a server without email says so instead of pretending
+    expect((await app.inject({ method: "POST", url: "/v1/auth/forgot", payload: { email } })).statusCode).toBe(501);
   });
 
   it("rate-limits login attempts per IP", async () => {
