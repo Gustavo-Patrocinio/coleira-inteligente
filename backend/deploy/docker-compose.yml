@@ -3,7 +3,7 @@
 #   docker compose up -d --build
 services:
   db:
-    image: timescale/timescaledb:2.17.2-pg16
+    image: timescale/timescaledb:2.32.0-pg16
     restart: unless-stopped
     environment:
       POSTGRES_USER: collar
@@ -58,7 +58,7 @@ services:
   backup:
     # Nightly pg_dump into ./backups; dumps older than 14 days are pruned.
     # The offsite service below copies them off the server.
-    image: timescale/timescaledb:2.17.2-pg16
+    image: timescale/timescaledb:2.32.0-pg16
     restart: unless-stopped
     environment:
       PGPASSWORD: ${POSTGRES_PASSWORD}
