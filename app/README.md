@@ -28,7 +28,7 @@ Screens follow the clickable prototype (`docs/product/app-prototype/`).
 
 ```bash
 flutter analyze
-flutter test        # 41 tests, no device needed
+flutter test        # 42 tests, no device needed
 ```
 
 ## Run on your iPhone (from the MacBook)
@@ -86,7 +86,7 @@ to the server (`PUT /v1/me/push-token`); signing out removes it.
 
 ## Status
 
-- [x] `flutter analyze` clean, 41 tests passing (2026-11-19)
+- [x] `flutter analyze` clean, 42 tests passing (2026-11-19)
 - [ ] Collection mode tested with the real collar logger (needs the XIAO)
 - [ ] Installed on an iPhone and an Android phone
 - [x] Phase 3 sync (contract 4.8): pair collar, "Sync now", upload via `api.ingest` (22 tests)
@@ -98,7 +98,8 @@ to the server (`PUT /v1/me/push-token`); signing out removes it.
       sex, neutering, breed, birth date, weight), dog switcher on every tab, several collars
       per dog, unpair, all paired collars synced in one go, local cache kept per dog
 - [x] Forgot password (code by email), password change keeps this phone signed in, signed out
-      with a reason when the server rejects the session, readable error messages (2026-11-19)
+      with a reason when the server rejects the session, readable error messages; opening the
+      app without network keeps the session and shows the remembered dogs (2026-11-19)
 - [x] Sleep on Today: bedtime–wake time, rest, awakenings, naps (estimated from movement)
 - [x] Push notifications for new alerts (FCM, token sent after consent, removed on sign-out);
       [ ] tested on a real phone with a Firebase project

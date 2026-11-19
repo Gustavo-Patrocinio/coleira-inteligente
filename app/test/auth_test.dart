@@ -167,6 +167,58 @@ void main() {
     },
   );
 
+  test(
+    'opening the app without network keeps the session and the dogs',
+    () async {
+      final server = _Server();
+      final store = MemorySessionStore();
+      final online = _state(server, store: store);
+      await online.restore();
+      await online.signIn(
+        'http://srv',
+        'a@b.com',
+        server.password,
+        register: false,
+      );
+
+      // next launch, no network
+      var reachable = false;
+      final flaky = MockClient((req) async {
+        if (!reachable) throw const SocketException('Network is unreachable');
+        final copy = http.Request(req.method, req.url)
+          ..headers.addAll(req.headers)
+          ..body = req.body;
+        return server.client.send(copy).then(http.Response.fromStream);
+      });
+      final s = AppState(
+        store: store,
+        apiFactory: (u) => CollarApi(baseUrl: u, client: flaky),
+        cache: MemorySummaryCache(),
+      );
+      await s.restore();
+      expect(s.loggedIn, isTrue);
+      expect(s.offline, isTrue);
+      expect(s.dog?.name, 'Thor');
+      expect(s.needsConsent, isFalse);
+
+      reachable = true; // back in range
+      await s.retryIfOffline();
+      expect(s.offline, isFalse);
+
+      // a phone that never got the account online cannot fake it
+      final fresh = AppState(
+        store: MemorySessionStore()..data['token'] = 'jwt-v0',
+        apiFactory: (u) => CollarApi(
+          baseUrl: u,
+          client: MockClient((_) async => throw const SocketException('x')),
+        ),
+        cache: MemorySummaryCache(),
+      );
+      await fresh.restore();
+      expect(fresh.loggedIn, isFalse);
+    },
+  );
+
   testWidgets('forgot password: code by email, new password, signed in', (
     tester,
   ) async {

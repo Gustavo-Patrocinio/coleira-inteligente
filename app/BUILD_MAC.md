@@ -7,7 +7,7 @@ hours the first time (mostly downloads).
 `https://203-0-113-7.sslip.io`), use it: skip step 3 and Docker/Node in step 1, and the app
 works anywhere, not only on your Wi-Fi. Otherwise step 3 runs the server on the Mac.
 
-> **Status (2026-11-19):** the app passes its 41 automated tests, but it has **not been built
+> **Status (2026-11-19):** the app passes its 42 automated tests, but it has **not been built
 > for iOS yet**. If a step fails, copy the exact error message: it is usually one setting.
 
 ## What you need

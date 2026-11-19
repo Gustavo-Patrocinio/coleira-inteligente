@@ -42,7 +42,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   /// Phone fallback sync (ADR 0007): silent, throttled, only with a paired collar.
   void _autoSync() {
     if (!mounted) return;
-    AppScope.of(context).syncCollar(widget.sync, auto: true);
+    final s = AppScope.of(context);
+    s.retryIfOffline();
+    s.syncCollar(widget.sync, auto: true);
   }
 
   @override
@@ -61,7 +63,27 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     ];
     return Scaffold(
       // a new dog selected → the tab starts over with that dog's data
-      body: KeyedSubtree(key: ValueKey(s.dog!.id), child: pages[_tab]),
+      body: Column(
+        children: [
+          if (s.offline)
+            Material(
+              color: Theme.of(context).colorScheme.secondaryContainer,
+              child: const SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  child: Text(
+                    'Offline: showing what this phone has. It catches up when the server '
+                    'is reachable.',
+                  ),
+                ),
+              ),
+            ),
+          Expanded(
+            child: KeyedSubtree(key: ValueKey(s.dog!.id), child: pages[_tab]),
+          ),
+        ],
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _tab,
         onDestinationSelected: (i) => setState(() => _tab = i),

@@ -45,6 +45,18 @@ class Dog {
     weightKg: j['weight_kg'] == null ? null : double.parse('${j['weight_kg']}'),
   );
 
+  /// Same shape as the server's, so the phone can remember the dogs for offline starts.
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'name': name,
+    'timezone': timezone,
+    'sex': sex,
+    'neutered': neutered,
+    'breed': breed,
+    'birth_date': birthDate,
+    'weight_kg': weightKg,
+  };
+
   /// Pronouns for app copy: from the profile's sex, "they/their" when not set.
   String get subject => switch (sex) {
     'male' => 'he',
@@ -310,6 +322,13 @@ class Me {
         : _int(j['consent_version']),
     researchOptIn: j['research_opt_in'] == true,
   );
+
+  Map<String, Object?> toJson() => {
+    'email': email,
+    'name': name,
+    'consent_version': consentVersion,
+    'research_opt_in': researchOptIn,
+  };
 }
 
 class CollarApi {

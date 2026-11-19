@@ -18,7 +18,7 @@ product, not a demo: every decision is measured, written down as an
 > **Status:** Phase 0 (ML pipeline) ✅ complete. Software for Phases 1–4 is written and
 > tested without hardware (firmware builds and is host-tested, the backend has 33 tests on
 > a real TimescaleDB and runs on a free Oracle Cloud VM with HTTPS and encrypted off-site
-> backups, the Flutter app has 41 tests); the board is on the way to validate it on a real
+> backups, the Flutter app has 42 tests); the board is on the way to validate it on a real
 > dog. See the [roadmap](#roadmap).
 
 ---

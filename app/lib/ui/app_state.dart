@@ -68,6 +68,10 @@ class AppState extends ChangeNotifier {
   CollarApi? api;
   String server = defaultServer;
 
+  /// Started without reaching the server: the screens use what this phone remembers (dogs,
+  /// account, recent minutes) until the server answers again.
+  bool offline = false;
+
   /// Why the user is on the sign-in screen again, when the app signed them out itself.
   String? signedOutReason;
   bool _endingSession = false;
@@ -119,11 +123,15 @@ class AppState extends ChangeNotifier {
     await _loadCollars();
     if (loggedIn) {
       try {
-        await _pickDog();
-        me = await api!.me();
+        await _refreshAccount();
         unawaited(_registerPush());
+      } on ApiException catch (e) {
+        // 401: the session ended (_sessionEnded already signed out). Other answers: the
+        // server is up but unhappy; keep the session and use what the phone remembers.
+        if (e.status == 401 || !await _loadRemembered()) api!.token = null;
       } catch (_) {
-        api!.token = null; // expired token or server unreachable → log in again
+        // no network or server down: stay signed in with what the phone remembers
+        if (!await _loadRemembered()) api!.token = null;
       }
     }
     restoring = false;
@@ -152,10 +160,52 @@ class AppState extends ChangeNotifier {
     signedOutReason = null;
     await store.write('server', server);
     await store.write('token', a.token);
-    await _pickDog();
-    me = await a.me();
+    await _refreshAccount();
     unawaited(_registerPush());
     notifyListeners();
+  }
+
+  /// Dogs and account from the server, remembered on the phone for offline starts.
+  Future<void> _refreshAccount() async {
+    await _pickDog();
+    me = await api!.me();
+    offline = false;
+    await _remember();
+  }
+
+  Future<void> _remember() async {
+    await store.write(
+      'dogs_cache',
+      jsonEncode([for (final d in dogs) d.toJson()]),
+    );
+    await store.write('me_cache', me == null ? null : jsonEncode(me!.toJson()));
+  }
+
+  /// Offline start: the dogs and account saved by the last online run. false = nothing saved.
+  Future<bool> _loadRemembered() async {
+    final d = await store.read('dogs_cache');
+    final m = await store.read('me_cache');
+    if (d == null || m == null) return false;
+    dogs = [
+      for (final j in jsonDecode(d) as List)
+        Dog.fromJson(j as Map<String, dynamic>),
+    ];
+    final saved = int.tryParse(await store.read('dog') ?? '');
+    dog = dogs.where((x) => x.id == saved).firstOrNull ?? dogs.firstOrNull;
+    me = Me.fromJson(jsonDecode(m) as Map<String, dynamic>);
+    offline = true;
+    return true;
+  }
+
+  /// Called when the app comes back to the foreground: an offline start tries the server again.
+  Future<void> retryIfOffline() async {
+    if (!offline || !loggedIn) return;
+    try {
+      await _refreshAccount();
+      unawaited(_registerPush());
+      dataVersion++;
+      notifyListeners();
+    } catch (_) {}
   }
 
   /// Forgot password, step 1: the server emails a code (ApiException 501 = it cannot).
@@ -178,6 +228,7 @@ class AppState extends ChangeNotifier {
   Future<void> createDog(DogProfile profile) async {
     final created = await api!.createDog(profile);
     dogs = [...dogs, created];
+    await _remember();
     await selectDog(created);
     pairStepPending = dogCollars.isEmpty && dogs.length == 1;
     notifyListeners();
@@ -187,6 +238,7 @@ class AppState extends ChangeNotifier {
     final updated = await api!.updateDog(d.id, profile);
     dogs = [for (final x in dogs) x.id == d.id ? updated : x];
     if (dog?.id == d.id) dog = updated;
+    await _remember();
     notifyListeners();
   }
 
@@ -202,6 +254,7 @@ class AppState extends ChangeNotifier {
         if (c.dogId != d.id) c,
     ];
     await _saveCollars();
+    await _remember();
     if (dog?.id == d.id) {
       dog = dogs.firstOrNull;
       await store.write('dog', dog == null ? null : '${dog!.id}');
@@ -219,12 +272,14 @@ class AppState extends ChangeNotifier {
 
   Future<void> acceptConsent({required bool researchOptIn}) async {
     me = await api!.putConsent(consentVersion, researchOptIn: researchOptIn);
+    await _remember();
     unawaited(_registerPush());
     notifyListeners();
   }
 
   Future<void> updateName(String name) async {
     me = await api!.updateMe(name: name.trim().isEmpty ? null : name.trim());
+    await _remember();
     notifyListeners();
   }
 
@@ -347,8 +402,11 @@ class AppState extends ChangeNotifier {
     dog = null;
     dogs = [];
     me = null;
+    offline = false;
     await store.write('token', null);
     await store.write('dog', null);
+    await store.write('dogs_cache', null);
+    await store.write('me_cache', null);
     await cache
         .clear(); // the dog's minutes do not stay on a phone after sign-out
     notifyListeners();
