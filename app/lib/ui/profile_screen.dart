@@ -5,6 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../api/api_client.dart';
+import '../core/errors.dart';
 import 'app_state.dart';
 import 'dog_form.dart';
 import 'widgets.dart';
@@ -53,7 +54,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       await s.updateName(name);
     } catch (e) {
-      _say('Could not save: $e');
+      _say('Could not save. ${friendlyError(e)}');
     }
   }
 
@@ -106,10 +107,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _say(
         e.status == 403
             ? 'The current password is wrong.'
-            : 'Could not change: ${e.message}',
+            : 'Could not change it. ${friendlyError(e)}',
       );
     } catch (e) {
-      _say('Could not reach the server ($e)');
+      _say('Could not change it. ${friendlyError(e)}');
     }
   }
 
@@ -124,7 +125,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       await f.writeAsString(json);
       await SharePlus.instance.share(ShareParams(files: [XFile(f.path)]));
     } catch (e) {
-      _say('Export failed: $e');
+      _say('Export failed. ${friendlyError(e)}');
     }
   }
 
@@ -154,7 +155,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       await s.deleteAccount();
     } catch (e) {
-      _say('Could not delete: $e');
+      _say('Could not delete. ${friendlyError(e)}');
     }
   }
 

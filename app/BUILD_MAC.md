@@ -1,9 +1,13 @@
 # Build and run the app on an iPhone (from a Mac)
 
-Step by step, from a Mac with nothing installed to the app open on your iPhone, talking to
-the server running on the same Mac. About 1–2 hours the first time (mostly downloads).
+Step by step, from a Mac with nothing installed to the app open on your iPhone. About 1–2
+hours the first time (mostly downloads).
 
-> **Status (2026-11-17):** the app passes its 35 automated tests, but it has **not been built
+**Which server?** If you already have one on the internet (`backend/DEPLOY-ORACLE.md`, e.g.
+`https://203-0-113-7.sslip.io`), use it: skip step 3 and Docker/Node in step 1, and the app
+works anywhere, not only on your Wi-Fi. Otherwise step 3 runs the server on the Mac.
+
+> **Status (2026-11-19):** the app passes its 41 automated tests, but it has **not been built
 > for iOS yet**. If a step fails, copy the exact error message: it is usually one setting.
 
 ## What you need
@@ -16,7 +20,8 @@ the server running on the same Mac. About 1–2 hours the first time (mostly dow
 | The same Wi-Fi for Mac and iPhone | the app talks to the server on the Mac |
 | No collar needed | sign-up, dogs, profile and the screens work without it; pairing, sync and recording need the collar (Phase 1 hardware) |
 
-Software (installed in step 1): Xcode, Homebrew, Git, Flutter 3.50, Docker Desktop, Node 22.
+Software (installed in step 1): Xcode, Homebrew, Git, Flutter 3.50, and only for a server on the
+Mac: Docker Desktop and Node 22.
 
 ## 1. Install the tools (once)
 
@@ -63,7 +68,7 @@ cd coleira-inteligente
 
 Later, to update: `git pull` in this folder.
 
-## 3. Start the server (database + API) on the Mac
+## 3. Start the server (database + API) on the Mac (skip with an internet server)
 
 ```bash
 cd ~/coleira-inteligente/backend
@@ -127,6 +132,8 @@ Close Xcode afterwards (or leave it open; it does not matter).
 ```bash
 cd ~/coleira-inteligente/app
 flutter run --release
+# with an internet server, prefill it on the sign-in screen:
+flutter run --release --dart-define=DEFAULT_SERVER=https://203-0-113-7.sslip.io
 ```
 
 The first build takes several minutes. On the first launch:
@@ -138,8 +145,9 @@ The first build takes several minutes. On the first launch:
 
 ## 7. Use it
 
-1. **Server:** `http://<the Mac's address>:3000`, e.g. `http://192.168.0.23:3000`
-   (`http`, not `https`, on your own Wi-Fi).
+1. **Server:** your internet server, e.g. `https://203-0-113-7.sslip.io`, or the Mac on your
+   Wi-Fi: `http://<the Mac's address>:3000`, e.g. `http://192.168.0.23:3000` (`http`, not
+   `https`).
 2. **Create account** with an email and a password of 10+ characters.
 3. Read the privacy notice → agree.
 4. Register the dog (only the name is required) → *Skip for now* on the collar step.

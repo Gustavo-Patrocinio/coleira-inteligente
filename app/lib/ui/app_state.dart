@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../api/api_client.dart';
+import '../core/errors.dart';
 import '../core/push.dart';
 import '../collar/summary_cache.dart';
 import '../collar/sync_service.dart';
@@ -46,7 +47,12 @@ class AppState extends ChangeNotifier {
        cache = cache ?? FileSummaryCache(),
        _clock = clock ?? DateTime.now;
 
-  static const defaultServer = 'http://192.168.0.10:3000';
+  /// Prefilled on the sign-in screen. Builds for a shared server set it with
+  /// `--dart-define=DEFAULT_SERVER=https://collar.example.com` (app/BUILD_MAC.md).
+  static const defaultServer = String.fromEnvironment(
+    'DEFAULT_SERVER',
+    defaultValue: 'http://192.168.0.10:3000',
+  );
   final SessionStore store;
   final CollarApi Function(Uri) _apiFactory;
   final SummaryCache cache;
@@ -61,6 +67,25 @@ class AppState extends ChangeNotifier {
 
   CollarApi? api;
   String server = defaultServer;
+
+  /// Why the user is on the sign-in screen again, when the app signed them out itself.
+  String? signedOutReason;
+  bool _endingSession = false;
+
+  CollarApi _newApi(String url) =>
+      _apiFactory(Uri.parse(url))..onUnauthorized = _sessionEnded;
+
+  /// The server rejected the login token: the password changed on another phone, the
+  /// account was deleted or the token expired. Back to sign-in, saying why.
+  void _sessionEnded() {
+    if (_endingSession || !loggedIn) return;
+    _endingSession = true;
+    signedOutReason =
+        'You were signed out: the password changed on another phone, or the session '
+        'expired. Sign in again.';
+    signOut().whenComplete(() => _endingSession = false);
+  }
+
   Dog? dog; // the dog the screens show
   List<Dog> dogs = [];
   Me? me;
@@ -90,7 +115,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> restore() async {
     server = await store.read('server') ?? defaultServer;
-    api = _apiFactory(Uri.parse(server))..token = await store.read('token');
+    api = _newApi(server)..token = await store.read('token');
     await _loadCollars();
     if (loggedIn) {
       try {
@@ -111,18 +136,42 @@ class AppState extends ChangeNotifier {
     String password, {
     required bool register,
   }) async {
-    server = serverUrl.trim().replaceAll(RegExp(r'/$'), '');
-    final a = _apiFactory(Uri.parse(server));
+    final a = _newApi(_cleanServer(serverUrl));
     register
-        ? await a.register(email, password)
-        : await a.login(email, password);
+        ? await a.register(email.trim(), password)
+        : await a.login(email.trim(), password);
+    await _signedIn(a);
+  }
+
+  static String _cleanServer(String url) =>
+      url.trim().replaceAll(RegExp(r'/$'), '');
+
+  Future<void> _signedIn(CollarApi a) async {
     api = a;
+    server = a.baseUrl.toString().replaceAll(RegExp(r'/$'), '');
+    signedOutReason = null;
     await store.write('server', server);
     await store.write('token', a.token);
     await _pickDog();
     me = await a.me();
     unawaited(_registerPush());
     notifyListeners();
+  }
+
+  /// Forgot password, step 1: the server emails a code (ApiException 501 = it cannot).
+  Future<void> requestPasswordReset(String serverUrl, String email) =>
+      _newApi(_cleanServer(serverUrl)).forgotPassword(email.trim());
+
+  /// Step 2: the code and a new password sign this phone in (and every other one out).
+  Future<void> resetPassword(
+    String serverUrl,
+    String email,
+    String code,
+    String newPassword,
+  ) async {
+    final a = _newApi(_cleanServer(serverUrl));
+    await a.resetPassword(email.trim(), code.trim(), newPassword);
+    await _signedIn(a);
   }
 
   /// Adds a dog to the account and shows it. After onboarding's first dog, offers pairing.
@@ -179,8 +228,10 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> changePassword(String current, String next) =>
-      api!.changePassword(current, next);
+  /// Other phones are signed out; this one keeps going with the new token.
+  Future<void> changePassword(String current, String next) async {
+    await store.write('token', await api!.changePassword(current, next));
+  }
 
   /// Registers the collar for [forDog] (default: the dog on screen). A collar already paired
   /// here with another dog moves (the server keeps the old dog's history).
@@ -355,7 +406,9 @@ class AppState extends ChangeNotifier {
           );
         } catch (e) {
           firstError ??= e;
-          lines.add('$who: not reached ($e).');
+          lines.add(
+            '$who: not reached (${e is ApiException ? friendlyError(e) : 'out of range or off'}).',
+          );
         }
       }
       if (total != null) lastSyncAt = _clock();

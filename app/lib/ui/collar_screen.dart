@@ -6,6 +6,7 @@ import '../collar/collar_link.dart';
 import '../collar/firmware_update.dart';
 import '../collar/sync_service.dart';
 import '../collection/collection_screen.dart';
+import '../core/errors.dart';
 import 'app_state.dart';
 import 'firmware_card.dart';
 import 'onboarding.dart';
@@ -91,7 +92,9 @@ class _CollarScreenState extends State<CollarScreen> {
       await s.unpairCollar(c);
       if (mounted) setState(_refresh);
     } catch (e) {
-      if (mounted) setState(() => _message = 'Could not unpair: $e');
+      if (mounted) {
+        setState(() => _message = 'Could not unpair. ${friendlyError(e)}');
+      }
     }
   }
 

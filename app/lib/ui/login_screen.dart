@@ -1,7 +1,8 @@
 import 'package:material_ui/material_ui.dart';
 
-import '../api/api_client.dart';
+import '../core/errors.dart';
 import 'app_state.dart';
+import 'forgot_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -31,10 +32,8 @@ class _LoginScreenState extends State<LoginScreen> {
       await AppScope.of(
         context,
       ).signIn(_server.text, _email.text, _password.text, register: register);
-    } on ApiException catch (e) {
-      setState(() => _error = e.message);
     } catch (e) {
-      setState(() => _error = 'Could not reach the server ($e)');
+      if (mounted) setState(() => _error = friendlyError(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -42,6 +41,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final reason = AppScope.of(context).signedOutReason;
     return Scaffold(
       body: SafeArea(
         child: ListView(
@@ -57,12 +57,21 @@ class _LoginScreenState extends State<LoginScreen> {
               'Sign in to see your dog\'s day. You can also record training sessions '
               'without an account from the Collar tab after signing in.',
             ),
+            if (reason != null) ...[
+              const SizedBox(height: 16),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Text(reason),
+                ),
+              ),
+            ],
             const SizedBox(height: 24),
             TextField(
               controller: _server,
               decoration: const InputDecoration(
                 labelText: 'Server',
-                helperText: 'e.g. http://192.168.0.10:3000',
+                helperText: 'e.g. https://collar.example.com or http://192.168.0.10:3000',
               ),
               keyboardType: TextInputType.url,
             ),
@@ -93,6 +102,19 @@ class _LoginScreenState extends State<LoginScreen> {
             TextButton(
               onPressed: _busy ? null : () => _go(register: true),
               child: const Text('Create account'),
+            ),
+            TextButton(
+              onPressed: _busy
+                  ? null
+                  : () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => ForgotPasswordScreen(
+                          server: _server.text,
+                          email: _email.text,
+                        ),
+                      ),
+                    ),
+              child: const Text('Forgot password?'),
             ),
           ],
         ),

@@ -8,6 +8,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../api/api_client.dart';
 import '../collar/collar_link.dart';
+import '../core/errors.dart';
 import '../core/sync_protocol.dart';
 import 'app_state.dart';
 import 'dog_form.dart';
@@ -29,7 +30,7 @@ class _ConsentScreenState extends State<ConsentScreen> {
     try {
       await AppScope.of(context).acceptConsent(researchOptIn: _research);
     } on Exception catch (e) {
-      setState(() => _error = 'Could not save: $e');
+      setState(() => _error = 'Could not save. ${friendlyError(e)}');
     } finally {
       if (mounted) setState(() => _busy = false);
     }

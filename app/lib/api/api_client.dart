@@ -320,6 +320,10 @@ class CollarApi {
   final http.Client _http;
   String? token;
 
+  /// Called when the server rejects this user's login token (password changed on another
+  /// phone, account deleted, expired). Not for wrong passwords or a collar's token.
+  void Function()? onUnauthorized;
+
   Future<String> register(String email, String password) =>
       _auth('register', email, password);
   Future<String> login(String email, String password) =>
@@ -330,6 +334,27 @@ class CollarApi {
       'POST',
       '/v1/auth/$path',
       body: {'email': email, 'password': password},
+      auth: false,
+    );
+    token = j['token'] as String;
+    return token!;
+  }
+
+  /// Emails a reset code if the address has an account (the answer is the same either way).
+  /// ApiException 501: this server cannot send email.
+  Future<void> forgotPassword(String email) =>
+      _send('POST', '/v1/auth/forgot', body: {'email': email}, auth: false);
+
+  /// Sets a new password with the emailed code; signs in (other phones are signed out).
+  Future<String> resetPassword(
+    String email,
+    String code,
+    String newPassword,
+  ) async {
+    final j = await _send(
+      'POST',
+      '/v1/auth/reset',
+      body: {'email': email, 'code': code, 'new_password': newPassword},
       auth: false,
     );
     token = j['token'] as String;
@@ -416,11 +441,17 @@ class CollarApi {
   Future<Me> updateMe({String? name}) async =>
       Me.fromJson(await _send('PATCH', '/v1/me', body: {'name': name}));
 
-  Future<void> changePassword(String current, String next) => _send(
-    'POST',
-    '/v1/me/password',
-    body: {'current_password': current, 'new_password': next},
-  );
+  /// Changes the password; the server signs out other phones and returns this phone's new
+  /// token, which replaces the old one.
+  Future<String> changePassword(String current, String next) async {
+    final j = await _send(
+      'POST',
+      '/v1/me/password',
+      body: {'current_password': current, 'new_password': next},
+    );
+    token = j['token'] as String;
+    return token!;
+  }
 
   Future<Me> putConsent(int version, {required bool researchOptIn}) async =>
       Me.fromJson(
@@ -485,6 +516,9 @@ class CollarApi {
     }
     final res = await http.Response.fromStream(await _http.send(req));
     final decoded = res.body.isEmpty ? null : jsonDecode(res.body);
+    if (res.statusCode == 401 && bearer == null && auth && b != null) {
+      onUnauthorized?.call();
+    }
     if (res.statusCode >= 400) {
       final msg = decoded is Map && decoded['message'] != null
           ? decoded['message']

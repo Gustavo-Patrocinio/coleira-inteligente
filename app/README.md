@@ -22,12 +22,13 @@ Screens follow the clickable prototype (`docs/product/app-prototype/`).
 | `lib/collar/` | `CollarLink` interface + `universal_ble` implementation (ADR 0012) |
 | `lib/collection/` | `SessionRecorder` (CSV + meta.json) and the recording screen |
 | `lib/api/` | backend client, day/timeline helpers, alert copy |
-| `lib/ui/` | login, onboarding (consent, dog, pairing), home tabs, Today, Trends, Alerts, Collar |
+| `lib/core/errors.dart` | exceptions → sentences an owner can act on |
+| `lib/ui/` | login and forgot password, onboarding (consent, dog, pairing), home tabs, Today, Trends, Alerts, Collar |
 | `test/` | contract byte vectors (shared with Python/backend), recorder, API client, full widget flow |
 
 ```bash
 flutter analyze
-flutter test        # 35 tests, no device needed
+flutter test        # 41 tests, no device needed
 ```
 
 ## Run on your iPhone (from the MacBook)
@@ -49,9 +50,20 @@ BLE and the camera only work on a real phone, not in the simulator.
 
 ## Talking to the backend
 
-Run the backend on your computer (`backend/README.md`) and, on the phone's login screen, use
-the computer's LAN address, e.g. `http://192.168.0.10:3000` (same Wi-Fi). Plain HTTP is only
-allowed for the local network (iOS `NSAllowsLocalNetworking`); a public server must use HTTPS.
+On the sign-in screen, **Server** is either a server on the internet with HTTPS
+(`backend/DEPLOY.md`, `backend/DEPLOY-ORACLE.md`), e.g. `https://collar.example.com`, or the
+backend on your computer (`backend/README.md`) by its LAN address, e.g.
+`http://192.168.0.10:3000` (same Wi-Fi). Plain HTTP is only allowed for the local network
+(iOS `NSAllowsLocalNetworking`).
+
+To prefill the field for everyone who installs your build:
+`flutter run --release --dart-define=DEFAULT_SERVER=https://collar.example.com` (same flag for
+`flutter build`).
+
+Accounts: *Forgot password?* emails a 6-digit code when the server has email set up
+(`backend/DEPLOY.md`, *Email*); otherwise the app says the server cannot send email. Changing
+or resetting the password signs out the account's other phones; a phone the server signs out
+goes back to the sign-in screen and says why.
 
 ## Push notifications (optional)
 
@@ -74,7 +86,7 @@ to the server (`PUT /v1/me/push-token`); signing out removes it.
 
 ## Status
 
-- [x] `flutter analyze` clean, 35 tests passing (2026-11-17)
+- [x] `flutter analyze` clean, 41 tests passing (2026-11-19)
 - [ ] Collection mode tested with the real collar logger (needs the XIAO)
 - [ ] Installed on an iPhone and an Android phone
 - [x] Phase 3 sync (contract 4.8): pair collar, "Sync now", upload via `api.ingest` (22 tests)
@@ -85,6 +97,8 @@ to the server (`PUT /v1/me/push-token`); signing out removes it.
 - [x] Several dogs and collars per account: Profile tab (owner name, password, dogs with
       sex, neutering, breed, birth date, weight), dog switcher on every tab, several collars
       per dog, unpair, all paired collars synced in one go, local cache kept per dog
+- [x] Forgot password (code by email), password change keeps this phone signed in, signed out
+      with a reason when the server rejects the session, readable error messages (2026-11-19)
 - [x] Sleep on Today: bedtime–wake time, rest, awakenings, naps (estimated from movement)
 - [x] Push notifications for new alerts (FCM, token sent after consent, removed on sign-out);
       [ ] tested on a real phone with a Firebase project

@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../api/api_client.dart';
+import '../core/errors.dart';
 import 'app_state.dart';
 
 /// Create or edit a dog's profile. Only the name is required; the rest helps reading the
@@ -99,10 +100,10 @@ class _DogFormState extends State<DogForm> {
         await s.updateDog(widget.dog!, profile);
       }
       widget.onSaved?.call();
-    } on ApiException catch (e) {
-      if (mounted) setState(() => _error = 'Could not save: ${e.message}');
     } catch (e) {
-      if (mounted) setState(() => _error = 'Could not reach the server ($e)');
+      if (mounted) {
+        setState(() => _error = 'Could not save. ${friendlyError(e)}');
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
