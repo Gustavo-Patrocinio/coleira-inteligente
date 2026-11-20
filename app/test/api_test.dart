@@ -123,6 +123,75 @@ void main() {
       },
     );
 
+    test('active minutes per hour: local hours, partial hours flagged', () {
+      final day = DayView(
+        day: '2026-10-01',
+        totals: const {},
+        blocks: [
+          // 07:00–07:59 local: four full blocks, 10 + 5 minutes walking/running each
+          for (var q = 0; q < 4; q++)
+            block('2026-10-01T10:${(q * 15).toString().padLeft(2, '0')}:00Z', {
+              'still_s': 0,
+              'walking_s': 600,
+              'running_s': 300,
+            }),
+          // 08:00 local: the hour in progress, one block so far
+          block('2026-10-01T11:00:00Z', {'walking_s': 120, 'still_s': 780}),
+        ],
+      );
+      final hours = activityPerHour(day, const Duration(hours: -3));
+      expect(hours, hasLength(24));
+      expect(hours[7]!.activeMin, 60);
+      expect(hours[7]!.partial, isFalse);
+      expect(hours[8]!.activeMin, 2);
+      expect(hours[8]!.partial, isTrue);
+      expect(hours[6], isNull);
+    });
+
+    test('usual range per hour from the server', () async {
+      final api = CollarApi(
+        baseUrl: Uri.parse('http://server:3000'),
+        token: 't',
+        client: MockClient((req) async {
+          expect(req.url.path, '/v1/dogs/7/normal/2026-11-17');
+          return http.Response(
+            jsonEncode({
+              'day': '2026-11-17',
+              'days_used': 6,
+              'day_type': 'weekend',
+              'hours': [
+                for (var h = 0; h < 24; h++)
+                  h == 9
+                      ? {
+                          'hour': 9,
+                          'p25': 2.5,
+                          'median': 5,
+                          'p75': 8,
+                          'days': 6,
+                        }
+                      : null,
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+      final n = await api.normal(7, '2026-11-17');
+      expect(n.ready, isTrue);
+      expect(n.dayType, 'weekend');
+      expect(n.hours[9]!.p25, 2.5);
+      expect(n.hours[9]!.median, 5);
+      expect(n.hours[0], isNull);
+      expect(
+        HourlyNormal.fromJson({
+          'days_used': 3,
+          'day_type': 'all',
+          'hours': List.filled(24, null),
+        }).ready,
+        isFalse,
+      );
+    });
+
     test('timeline slots use the local time of each block', () {
       final day = DayView(
         day: '2026-10-01',

@@ -15,6 +15,7 @@ class TodayScreen extends StatefulWidget {
 class _TodayScreenState extends State<TodayScreen> {
   Future<DayView>? _day;
   Future<SleepView?>? _sleep;
+  Future<HourlyNormal?>? _normal;
 
   // The backend's days are in the dog's time zone; Brazil has no DST, so a fixed offset is
   // enough here. A full IANA lookup comes with multi-country support.
@@ -58,9 +59,20 @@ class _TodayScreenState extends State<TodayScreen> {
     }
   }
 
+  /// Optional too: an older server or no connection just leaves the usual range out.
+  Future<HourlyNormal?> _fetchNormal() async {
+    final s = AppScope.of(context);
+    try {
+      return await s.api!.normal(s.dog!.id, _today());
+    } catch (_) {
+      return null;
+    }
+  }
+
   void _load() => setState(() {
     _day = _fetch();
     _sleep = _fetchSleep();
+    _normal = _fetchNormal();
   });
 
   @override
@@ -72,6 +84,7 @@ class _TodayScreenState extends State<TodayScreen> {
       _seenVersion = v;
       _day = _fetch();
       _sleep = _fetchSleep();
+      _normal = _fetchNormal();
     }
   }
 
@@ -124,6 +137,14 @@ class _TodayScreenState extends State<TodayScreen> {
                         ),
                         const SizedBox(height: 10),
                         TimelineBar(slots: timelineSlots(d, _localOffset)),
+                        const SizedBox(height: 18),
+                        FutureBuilder<HourlyNormal?>(
+                          future: _normal,
+                          builder: (context, normalSnap) => HourlyActivityChart(
+                            today: activityPerHour(d, _localOffset),
+                            normal: normalSnap.data,
+                          ),
+                        ),
                       ],
                     ),
                   ),

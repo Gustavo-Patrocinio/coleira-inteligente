@@ -331,7 +331,7 @@ the author's dog **and at least 4 other dogs** of different sizes (ADR 0009).
 - [x] Raw dump mode, enabled from the app (to keep collecting dataset): the collar firmware serves the logger's raw service while subscribed; the app's collection mode finds either firmware (ADR 0014; builds, not run on a board yet)
 - [x] Clock: the client sends the current time on connect; the collar keeps it (2 h RAM buffer stamped retroactively)
 - [x] App side of the sync: pair the collar (registers the device, keeps its token), "Sync now" fetches since X and uploads via `api.ingest` (tested with a fake collar; caught a status-before-data race)
-- [x] App: daily routine screen (timeline per class + Exercise, Sleep and Skin indicators; see `docs/product/indicators.md`); sync on open and on return to the foreground (throttled); offline day from records kept on the phone
+- [x] App: daily routine screen (timeline per class, active minutes per hour against the dog's usual range for that hour (`GET /v1/dogs/:id/normal/:day`, 2026-11-20), Exercise, Sleep and Skin indicators; see `docs/product/indicators.md`); sync on open and on return to the foreground (throttled); offline day from records kept on the phone
 - [ ] First power measurement with PPK2 → `docs/energy-budget.md`
 
 **Done when:** 24 h in a row recorded wirelessly, sync with no loss or duplicates, OTA tested.
@@ -351,13 +351,13 @@ arrives on its own.
 - [x] Alerts by robust z-score (|z| > 3) for total activity, scratching time and night wake-ups; ≥ 14 complete days of history; incomplete days skipped
 - [x] "Made sense / false alarm" feedback on each alert
 - [ ] Push via Firebase Cloud Messaging (code done 2026-11-17: `backend/src/push.ts` sends one notification per new alert over the FCM HTTP v1 API when `FCM_SERVICE_ACCOUNT_FILE` is set; the app registers its token after consent and removes it on sign-out; waits for a Firebase project and a real phone; iOS needs a paid Apple account)
-- [x] Tests: duplicate ingestion, sync gaps, time zones, accounts (33 tests, integration against a real TimescaleDB)
+- [x] Tests: duplicate ingestion, sync gaps, time zones, accounts, backup age, usual activity per hour (43 tests, integration against a real TimescaleDB)
 - [x] App: trends and alerts screens (with feedback), backed by the API; push notifications (code done, see above)
 - [ ] **Base station (`basestation/`, ADR 0007):** ESP32 (e.g. XIAO ESP32-C3) as BLE central that pulls new summaries from the collar and uploads them over Wi-Fi to `/ingest`; Wi-Fi provisioning from the app over BLE; per-device credential; collar prefers the base station when both clients are present
 - [ ] Phone keeps working as fallback sync away from home
 - [x] Several dogs and several collars per account (profiles with sex, neutering, breed, birth date, weight; a collar moved between dogs keeps the old dog's history; app Profile tab and dog switcher, 2026-11-17); privacy (LGPD): export (`GET /v1/me/export`) and deletion (`DELETE /v1/me`); consent screen in the app, recorded on the server with its version (`PUT /v1/me/consent`, separate research opt-in); export/delete buttons in the app; per-IP rate limit on login/register; accounts: password reset by a 6-digit email code (SMTP, any provider; the server answers 501 without one), changing or resetting the password signs out other phones (`users.token_version`), app *Forgot password?*, readable errors, offline starts keep the session (2026-11-19)
 - [x] Self-hostable with Docker Compose: `backend/DEPLOY.md` (Caddy HTTPS, nightly backups, restore tested locally; encrypted off-site copies to S3-compatible storage, tested against a local S3 server); Oracle Cloud free ARM VM guide and setup script (`backend/DEPLOY-ORACLE.md`); running on an OCI VM since 2026-11-18 (sslip.io address; `smoke-test.sh` passes; encrypted off-site copies in OCI Object Storage; `restore-check.sh` restored the newest one, after it caught an empty first dump, now fixed); [ ] SMTP provider set up on it; [ ] one shared instance open to beta users
-- [x] Upkeep: CI fails on high/critical `npm audit` findings, Dependabot weekly PRs, *Uptime* workflow every 30 min (needs the `HEALTH_URL` repository variable), `/health` checks the database (2026-11-19; dependencies upgraded past critical fast-jwt/fastify issues and redeployed)
+- [x] Upkeep: CI fails on high/critical `npm audit` findings, Dependabot weekly PRs, *Uptime* workflow every 30 min (`HEALTH_URL` repository variable set), `/health` checks the database, `/health/backups` alerts when the newest dump or off-site copy is over 48 h old, container logs rotate, the VM reboots itself at night for kernel updates (2026-11-20); (2026-11-19: dependencies upgraded past critical fast-jwt/fastify issues and redeployed)
 
 **Done when:** a real alert fires correctly with your dog's data; repeated ingestion does
 not duplicate; with the base station on, data reaches the backend within minutes of the
@@ -466,5 +466,5 @@ from the production design, with a cost per unit that allows selling it.
 
 - **Current phase:** 1 (Phase 0 completed 2026-11-16)
 - **Goal:** open project for any dog first, product later (ADR 0009)
-- **Next task:** when the XIAO arrives: flash `firmware/logger` and `firmware/app` (both build; NCS v2.9.0 in `C:\ncs`, tflite-micro in `C:\ncs\extra`), verify with `ml/scripts/record_ble.py`, the phone app's collection mode (install on the iPhone from the MacBook, `app/BUILD_MAC.md`, pointing at the deployed server) and the firmware serial log. Meanwhile (owner): SMTP provider for password reset, `HEALTH_URL` variable for the uptime check, offline backup of the signing key, Firebase project for push
+- **Next task:** when the XIAO arrives: flash `firmware/logger` and `firmware/app` (both build; NCS v2.9.0 in `C:\ncs`, tflite-micro in `C:\ncs\extra`), verify with `ml/scripts/record_ble.py`, the phone app's collection mode (install on the iPhone from the MacBook, `app/BUILD_MAC.md`, pointing at the deployed server) and the firmware serial log. Meanwhile (owner): SMTP provider for password reset, Firebase project for push
 - **Hardware:** XIAO nRF52840 Sense + Raspberry Pi Pico H ordered (AliExpress, ETA Nov 27 – Dec 4, 2026); battery, jumpers and soldering kit to buy locally

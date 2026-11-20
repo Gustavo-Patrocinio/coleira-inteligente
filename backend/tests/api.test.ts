@@ -429,4 +429,39 @@ describe.runIf(() => available)("API with a real database", () => {
     expect(Number(blocked.headers["retry-after"])).toBeGreaterThan(0);
     await limited.close();
   });
+
+  it("usual activity per hour from the previous weeks, in the dog's time zone", async () => {
+    // own app: the shared one has used up this test file's sign-up allowance
+    const a = await buildApp({ pool, jwtSecret: "test-secret-test-secret" });
+    const reg = await a.inject({
+      method: "POST",
+      url: "/v1/auth/register",
+      payload: { email: "normal@example.com", password: "correct horse battery" },
+    });
+    const owner = { authorization: `Bearer ${reg.json().token}` };
+    const dogId = (await a.inject({ method: "POST", url: "/v1/dogs", headers: owner, payload: { name: "Thor", timezone: TZ } })).json().id;
+    const pair = await a.inject({ method: "POST", url: `/v1/dogs/${dogId}/devices`, headers: owner, payload: { serial: "AA:00:00:00:00:51" } });
+    const device = { authorization: `Bearer ${pair.json().token}` };
+    // 10 days before 2026-10-20: 07:00-07:59 local with 30 s walking per minute, 08:00 still
+    const recs: MinuteRecord[] = [];
+    for (let d = 10; d >= 1; d--) {
+      const day = new Date(Date.parse("2026-10-20T00:00:00Z") - d * 86_400_000).toISOString().slice(0, 10);
+      for (let m = 7 * 60; m < 9 * 60; m++) recs.push(minute(spTs(day, m), m < 8 * 60 ? 30 : 0));
+    }
+    const up = await a.inject({ method: "POST", url: "/v1/ingest", headers: device, payload: { records: b64(recs), via: "app" } });
+    expect(up.json().inserted).toBe(recs.length);
+
+    const r = await a.inject({ method: "GET", url: `/v1/dogs/${dogId}/normal/2026-10-20`, headers: owner });
+    expect(r.statusCode).toBe(200);
+    const n = r.json();
+    // 2026-10-20 is a Tuesday: 6 of the 10 days are weekdays, enough to compare like with like
+    expect(n.day_type).toBe("weekday");
+    expect(n.days_used).toBe(6);
+    expect(n.hours).toHaveLength(24);
+    expect(n.hours[7]).toMatchObject({ hour: 7, median: 30, p25: 30, p75: 30, days: 6 });
+    expect(n.hours[8]).toMatchObject({ median: 0 });
+    expect(n.hours[6]).toBeNull();
+    expect((await a.inject({ method: "GET", url: `/v1/dogs/${dogId}/normal/2026-10-20` })).statusCode).toBe(401);
+    await a.close();
+  });
 });

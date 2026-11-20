@@ -2,7 +2,8 @@
 
 One codebase for iPhone and Android:
 
-- **Today / Trends / Alerts** from the backend: 24 h timeline, Exercise, Sleep (night
+- **Today / Trends / Alerts** from the backend: 24 h timeline, active minutes per hour
+  over the dog's usual range for each hour (last 4 weeks), Exercise, Sleep (night
   wake-ups) and Skin (scratching) indicators, daily trends, alerts in plain language with
   "made sense / false alarm" feedback (docs/product/indicators.md).
 - **Sync** (contract 4.8): pairs the collar and syncs on its own whenever the app opens near
@@ -28,7 +29,7 @@ Screens follow the clickable prototype (`docs/product/app-prototype/`).
 
 ```bash
 flutter analyze
-flutter test        # 42 tests, no device needed
+flutter test        # 44 tests, no device needed
 ```
 
 ## Run on your iPhone (from the MacBook)
@@ -86,7 +87,7 @@ to the server (`PUT /v1/me/push-token`); signing out removes it.
 
 ## Status
 
-- [x] `flutter analyze` clean, 42 tests passing (2026-11-19)
+- [x] `flutter analyze` clean, 44 tests passing (2026-11-20)
 - [ ] Collection mode tested with the real collar logger (needs the XIAO)
 - [ ] Installed on an iPhone and an Android phone
 - [x] Phase 3 sync (contract 4.8): pair collar, "Sync now", upload via `api.ingest` (22 tests)

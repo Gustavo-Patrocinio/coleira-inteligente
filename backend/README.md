@@ -41,6 +41,7 @@ off-site backups, step by step: [DEPLOY-ORACLE.md](DEPLOY-ORACLE.md).
 | POST | `/v1/ingest` | device | `{records: base64 of N × 15-byte records, via: base_station \| app}` → `{received, inserted, duplicates, rejected[]}` |
 | GET | `/v1/dogs/:id/days/:day` | user | local day: totals per class, 15-min blocks, night wake-ups |
 | GET | `/v1/dogs/:id/sleep/:day` | user | sleep estimated from movement: the night ending on `day` (bedtime, wake time, rest, awakenings, longest stretch, coverage) and that day's naps |
+| GET | `/v1/dogs/:id/normal/:day` | user | the dog's usual active minutes per local hour (`src/normal.ts`): quartiles over the 28 days before `day`, same day type when ≥ 6 such days, hours counted only with ≥ 45 recorded minutes; a band from 7 days of history and 5 recorded days per hour (`hours[h]` null otherwise) |
 | GET | `/v1/dogs/:id/trends?days=30` | user | daily metrics (active, scratching, night wake-ups, coverage) |
 | GET | `/v1/dogs/:id/alerts` | user | latest alerts |
 | POST | `/v1/alerts/:id/feedback` | user | `{feedback: useful \| false_alarm}` |
@@ -76,7 +77,3 @@ dev_...`. A dog that is not yours is a 404, never a 403, so IDs reveal nothing.
   only as a hash (`password_resets`), one pending code per user.
 - **Storage:** `activity_minute` is a TimescaleDB hypertable (7-day chunks) with an hourly
   continuous aggregate (`activity_hourly`). Migrations are plain SQL in `migrations/`.
-
-## Not done yet
-
-- Hourly "normal band" endpoint for the app's timeline (data is already aggregated).

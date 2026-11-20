@@ -46,6 +46,32 @@ List<Behavior?> timelineSlots(DayView day, Duration localOffset) {
   return slots;
 }
 
+/// One local hour of today: active minutes (walking + running) and how many minutes the
+/// collar recorded (under 45 = partial: the hour in progress, or a gap in the data).
+class HourActivity {
+  const HourActivity(this.activeMin, this.recordedMin);
+  final double activeMin;
+  final int recordedMin;
+  bool get partial => recordedMin < 45;
+}
+
+/// 24 entries (local hours 0–23); null = no data that hour.
+List<HourActivity?> activityPerHour(DayView day, Duration localOffset) {
+  final minutes = List<int>.filled(24, 0);
+  final active = List<int>.filled(24, 0);
+  for (final b in day.blocks) {
+    final h = b.start.toUtc().add(localOffset).hour;
+    minutes[h] += b.minutes;
+    active[h] +=
+        (b.secondsByClass['walking_s'] ?? 0) +
+        (b.secondsByClass['running_s'] ?? 0);
+  }
+  return [
+    for (var h = 0; h < 24; h++)
+      minutes[h] == 0 ? null : HourActivity(active[h] / 60, minutes[h]),
+  ];
+}
+
 String formatDuration(int seconds) {
   final m = (seconds / 60).round();
   if (m < 60) return '$m min';

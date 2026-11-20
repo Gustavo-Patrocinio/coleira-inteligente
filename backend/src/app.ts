@@ -14,7 +14,8 @@ import type pg from "pg";
 import { z } from "zod";
 import { CLASS_COLUMNS, decodeRecords } from "./summary.js";
 import { hashPassword, hashToken, newDeviceToken, verifyPassword } from "./security.js";
-import { localParts } from "./metrics.js";
+import { BASELINE_DAYS, localParts } from "./metrics.js";
+import { hourlyNormal } from "./normal.js";
 import { sleepSummary } from "./sleep.js";
 import { type Mailer, resetEmail } from "./mail.js";
 import { backupStatus } from "./backups.js";
@@ -485,6 +486,33 @@ export async function buildApp({
         night_wakeups: daily?.night_wakeups ?? null,
         blocks: r.rows,
       };
+    },
+  );
+
+  // The dog's usual active minutes per local hour over the 28 days before :day (src/normal.ts)
+  app.get(
+    "/v1/dogs/:id/normal/:day",
+    { preHandler: requireUser, schema: { params: idParam.extend({ day: z.string().date() }) } },
+    async (req, reply) => {
+      const dog = await ownDog(req, reply, req.params.id);
+      if (!dog) return;
+      const r = await pool.query(
+        `SELECT to_char(a.minute_ts AT TIME ZONE $3, 'YYYY-MM-DD') AS day,
+                extract(hour FROM a.minute_ts AT TIME ZONE $3)::int AS hour,
+                count(*)::int AS minutes,
+                sum(a.walking_s + a.running_s)::int AS active_s
+           FROM activity_minute a JOIN devices d ON d.id = a.device_id
+          WHERE d.dog_id = $1
+            AND a.minute_ts >= ($2::date - $4::int)::timestamp AT TIME ZONE $3
+            AND a.minute_ts < ($2::date)::timestamp AT TIME ZONE $3
+          GROUP BY 1, 2`,
+        [dog.id, req.params.day, dog.timezone, BASELINE_DAYS],
+      );
+      const normal = hourlyNormal(
+        r.rows.map((x) => ({ day: x.day, hour: x.hour, minutes: x.minutes, activeS: x.active_s })),
+        req.params.day,
+      );
+      return { day: req.params.day, timezone: dog.timezone, ...normal };
     },
   );
 

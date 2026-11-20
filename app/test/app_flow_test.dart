@@ -10,6 +10,7 @@ import 'dart:typed_data';
 
 import 'package:collar_app/main.dart';
 import 'package:collar_app/ui/app_state.dart';
+import 'package:collar_app/ui/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -79,6 +80,28 @@ void main() {
         final b = jsonDecode(req.body) as Map<String, dynamic>;
         dogs.add({...b.cast<String, Object>(), 'id': '${dogs.length + 1}'});
         return http.Response(jsonEncode(dogs.last), 201);
+      }
+      if (p.startsWith('/v1/dogs/1/normal/')) {
+        return http.Response(
+          jsonEncode({
+            'day': '2026-11-17',
+            'days_used': 18,
+            'day_type': 'weekday',
+            'hours': [
+              for (var h = 0; h < 24; h++)
+                h == 7
+                    ? {
+                        'hour': 7,
+                        'p25': 12,
+                        'median': 18,
+                        'p75': 25,
+                        'days': 18,
+                      }
+                    : null,
+            ],
+          }),
+          200,
+        );
       }
       if (p.startsWith('/v1/dogs/2/days/')) {
         return http.Response(
@@ -165,6 +188,8 @@ void main() {
     expect(find.text('woke up 2×'), findsOneWidget);
     expect(find.text('scratched 11 min'), findsOneWidget);
     expect(find.text('compared with his normal in Trends'), findsOneWidget);
+    expect(find.byType(HourlyActivityChart), findsOneWidget);
+    expect(find.textContaining('Shaded: usual on weekdays'), findsOneWidget);
     expect(dogs.single['sex'], 'male');
 
     // a second dog from Profile; every tab follows the selected dog
@@ -190,6 +215,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Mel · today'), findsOneWidget);
     expect(find.text('compared with her normal in Trends'), findsOneWidget);
+    // a new dog has no history yet (the server answers 404 here): the chart says so
+    expect(find.textContaining('after a week of data'), findsOneWidget);
 
     await tester.tap(find.text('Mel · today')); // switcher (2 dogs)
     await tester.pumpAndSettle();

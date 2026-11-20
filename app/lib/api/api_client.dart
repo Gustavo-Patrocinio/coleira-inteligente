@@ -234,6 +234,49 @@ class SleepNight {
   );
 }
 
+/// One hour of the dog's usual activity: quartiles of active minutes (walking + running).
+class HourBand {
+  const HourBand({required this.p25, required this.median, required this.p75});
+  final double p25;
+  final double median;
+  final double p75;
+}
+
+/// GET /v1/dogs/:id/normal/:day: the usual active minutes per local hour over the previous
+/// 4 weeks (same day type when there is enough history).
+class HourlyNormal {
+  const HourlyNormal({
+    required this.daysUsed,
+    required this.dayType,
+    required this.hours,
+  });
+
+  final int daysUsed;
+
+  /// 'weekday', 'weekend' or 'all'
+  final String dayType;
+
+  /// 24 entries; null = not enough recorded days for that hour
+  final List<HourBand?> hours;
+
+  bool get ready => hours.any((h) => h != null);
+
+  factory HourlyNormal.fromJson(Map<String, dynamic> j) => HourlyNormal(
+    daysUsed: _int(j['days_used']),
+    dayType: j['day_type'] as String,
+    hours: [
+      for (final h in j['hours'] as List)
+        h == null
+            ? null
+            : HourBand(
+                p25: (h['p25'] as num).toDouble(),
+                median: (h['median'] as num).toDouble(),
+                p75: (h['p75'] as num).toDouble(),
+              ),
+    ],
+  );
+}
+
 class SleepView {
   const SleepView({
     required this.day,
@@ -435,6 +478,9 @@ class CollarApi {
 
   Future<SleepView> sleep(int dogId, String day) async =>
       SleepView.fromJson(await _send('GET', '/v1/dogs/$dogId/sleep/$day'));
+
+  Future<HourlyNormal> normal(int dogId, String day) async =>
+      HourlyNormal.fromJson(await _send('GET', '/v1/dogs/$dogId/normal/$day'));
 
   Future<List<DayMetric>> trends(int dogId, {int days = 30}) async {
     final j = await _send('GET', '/v1/dogs/$dogId/trends?days=$days');

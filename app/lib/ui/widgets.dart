@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../api/api_client.dart';
+import '../api/day_summary.dart';
 import '../core/contracts.dart';
 import 'app_state.dart';
 
@@ -71,6 +72,133 @@ class TimelineBar extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Active minutes per hour today (bars) over the dog's usual range for that hour (shaded:
+/// middle half of the last 4 weeks, line = median). Answers "did he get his usual walk?".
+class HourlyActivityChart extends StatelessWidget {
+  const HourlyActivityChart({super.key, required this.today, this.normal});
+  final List<HourActivity?> today;
+  final HourlyNormal? normal;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context);
+    final ready = normal?.ready ?? false;
+    final dayType = switch (normal?.dayType) {
+      'weekday' => 'weekdays',
+      'weekend' => 'weekends',
+      _ => 'days',
+    };
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Semantics(
+          label: 'Active minutes per hour today compared with the usual range',
+          child: SizedBox(
+            height: 90,
+            child: CustomPaint(
+              painter: _HourlyPainter(
+                today: today,
+                bands: ready ? normal!.hours : const [],
+                bar: Behavior.walking.color,
+                band: t.colorScheme.primary,
+                grid: t.colorScheme.outlineVariant,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            for (final h in ['0h', '6h', '12h', '18h', '24h'])
+              Text(h, style: t.textTheme.labelSmall),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          ready
+              ? 'Bars: active minutes per hour today. Shaded: usual on '
+                    '$dayType (last 4 weeks).'
+              : 'Active minutes per hour today. The usual range shows up after '
+                    'a week of data.',
+          style: t.textTheme.bodySmall,
+        ),
+      ],
+    );
+  }
+}
+
+class _HourlyPainter extends CustomPainter {
+  _HourlyPainter({
+    required this.today,
+    required this.bands,
+    required this.bar,
+    required this.band,
+    required this.grid,
+  });
+  final List<HourActivity?> today;
+  final List<HourBand?> bands;
+  final Color bar;
+  final Color band;
+  final Color grid;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    var top = 30.0; // at least half an hour of activity on the scale
+    for (final h in today) {
+      if (h != null && h.activeMin > top) top = h.activeMin;
+    }
+    for (final b in bands) {
+      if (b != null && b.p75 > top) top = b.p75;
+    }
+    top = top.clamp(0, 60).toDouble();
+    final w = size.width / 24;
+    double y(double minutes) => size.height * (1 - minutes / top);
+
+    canvas.drawLine(
+      Offset(0, size.height),
+      Offset(size.width, size.height),
+      Paint()..color = grid,
+    );
+    for (var i = 0; i < 24; i++) {
+      final b = i < bands.length ? bands[i] : null;
+      if (b != null) {
+        canvas.drawRect(
+          Rect.fromLTRB(i * w, y(b.p75), (i + 1) * w, y(b.p25) + 1),
+          Paint()..color = band.withValues(alpha: 0.16),
+        );
+        canvas.drawLine(
+          Offset(i * w, y(b.median)),
+          Offset((i + 1) * w, y(b.median)),
+          Paint()
+            ..color = band.withValues(alpha: 0.6)
+            ..strokeWidth = 1.5,
+        );
+      }
+      final h = today[i];
+      if (h != null && h.activeMin > 0) {
+        canvas.drawRRect(
+          RRect.fromRectAndCorners(
+            Rect.fromLTRB(
+              i * w + w * 0.2,
+              y(h.activeMin),
+              (i + 1) * w - w * 0.2,
+              size.height,
+            ),
+            topLeft: const Radius.circular(2),
+            topRight: const Radius.circular(2),
+          ),
+          Paint()..color = h.partial ? bar.withValues(alpha: 0.45) : bar,
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_HourlyPainter old) =>
+      old.today != today || old.bands != bands;
 }
 
 /// One indicator (Exercise, Sleep, Skin): what it is, the number, and a one-line verdict.
