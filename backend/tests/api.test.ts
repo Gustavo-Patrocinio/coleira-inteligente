@@ -354,6 +354,15 @@ describe.runIf(() => available)("API with a real database", () => {
     expect(r.json()).toEqual({ ok: true });
   });
 
+  it("health/backups: 404 when not watched, 503 with the reason when late", async () => {
+    expect((await app.inject({ method: "GET", url: "/health/backups" })).statusCode).toBe(404);
+    const watched = await buildApp({ pool, jwtSecret: "test-secret-test-secret", backupDir: "/nonexistent-dir" });
+    const r = await watched.inject({ method: "GET", url: "/health/backups" });
+    expect(r.statusCode).toBe(503);
+    expect(r.json().problems).toEqual(["backup folder not readable"]);
+    await watched.close();
+  });
+
   it("password reset by email: one code, 15 minutes, 5 guesses, signs out other phones", async () => {
     const sent: MailMessage[] = [];
     const withMail = await buildApp({

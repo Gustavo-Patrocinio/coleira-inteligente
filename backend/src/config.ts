@@ -12,6 +12,8 @@ const schema = z.object({
   // outgoing email for password reset codes (DEPLOY.md, Email); unset = no reset by email
   SMTP_URL: z.string().optional(),
   MAIL_FROM: z.string().optional(),
+  // folder with the nightly dumps (deploy/docker-compose.yml); set = GET /health/backups
+  BACKUP_DIR: z.string().optional(),
   // "true" behind a reverse proxy (deploy/docker-compose.yml sets it)
   TRUST_PROXY: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
 });

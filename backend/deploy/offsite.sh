@@ -24,6 +24,7 @@ keep="${OFFSITE_KEEP_DAYS:-14}"
 while true; do
   if rclone copy /backups safe: --include 'collar-*.dump' --max-age "${keep}d"; then
     echo "offsite: copy ok ($(rclone lsf safe: --include 'collar-*.dump' | wc -l) dumps stored)"
+    touch /backups/.offsite-ok # GET /health/backups reads its age
     rclone delete safe: --include 'collar-*.dump' --min-age "${keep}d" || echo "offsite: prune failed"
   else
     echo "offsite: copy FAILED, retrying in 6 h"

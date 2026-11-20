@@ -26,6 +26,7 @@ off-site backups, step by step: [DEPLOY-ORACLE.md](DEPLOY-ORACLE.md).
 | Method | Path | Auth | What it does |
 |---|---|---|---|
 | GET | `/health` | — | liveness, including the database (503 when it is down) |
+| GET | `/health/backups` | — | age in hours of the newest dump and off-site copy; 503 with the reason when either is over 48 h (404 when `BACKUP_DIR` is unset) |
 | POST | `/v1/auth/register` | — | `{email, password}` → `{token}` (JWT, 30 days) |
 | POST | `/v1/auth/login` | — | `{email, password}` → `{token}` |
 | POST | `/v1/auth/forgot` | — | `{email}` → 202 always (never reveals whether the email has an account); emails a 6-digit code, at most one per minute. 501 when the server has no `SMTP_URL` |

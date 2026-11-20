@@ -19,6 +19,7 @@ const app = await buildApp({
   jwtSecret: config.JWT_SECRET,
   logger: true,
   trustProxy: config.TRUST_PROXY,
+  backupDir: config.BACKUP_DIR,
 });
 await app.listen({ port: config.PORT, host: config.HOST });
 

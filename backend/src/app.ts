@@ -17,6 +17,7 @@ import { hashPassword, hashToken, newDeviceToken, verifyPassword } from "./secur
 import { localParts } from "./metrics.js";
 import { sleepSummary } from "./sleep.js";
 import { type Mailer, resetEmail } from "./mail.js";
+import { backupStatus } from "./backups.js";
 
 export interface AppOptions {
   pool: pg.Pool;
@@ -28,6 +29,8 @@ export interface AppOptions {
   authAttemptsPer15Min?: number;
   /** Sends password reset codes; without it the reset endpoints answer 501. */
   mailer?: Mailer;
+  /** Folder with the nightly dumps; GET /health/backups watches it (src/backups.ts). */
+  backupDir?: string;
 }
 
 declare module "@fastify/jwt" {
@@ -47,6 +50,7 @@ export async function buildApp({
   trustProxy = false,
   authAttemptsPer15Min = 20,
   mailer,
+  backupDir,
 }: AppOptions) {
   const app = Fastify({ logger, trustProxy, bodyLimit: 1024 * 1024 }).withTypeProvider<ZodTypeProvider>();
   app.setValidatorCompiler(validatorCompiler);
@@ -91,6 +95,13 @@ export async function buildApp({
     } catch {
       return reply.code(503).send({ ok: false, error: "database unavailable" });
     }
+  });
+
+  // Separate from /health: a late backup must alert the owner, not mark the API unhealthy.
+  app.get("/health/backups", async (_req, reply) => {
+    if (!backupDir) return reply.code(404).send({ error: "this server does not watch its backups" });
+    const status = await backupStatus(backupDir);
+    return reply.code(status.ok ? 200 : 503).send(status);
   });
 
   // ------------------------------------------------------------------ auth

@@ -35,6 +35,13 @@ if command -v netfilter-persistent >/dev/null; then sudo netfilter-persistent sa
 echo "== Automatic security updates"
 sudo apt-get update -q
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -q unattended-upgrades
+# kernel and libc fixes only apply after a reboot; do it at night when one is pending
+# (the containers come back on their own: restart: unless-stopped)
+sudo tee /etc/apt/apt.conf.d/52collar-reboot >/dev/null <<'APT'
+// Smart Collar: reboot at 07:00 UTC (04:00 in Brazil) when an update needs it
+Unattended-Upgrade::Automatic-Reboot "true";
+Unattended-Upgrade::Automatic-Reboot-Time "07:00";
+APT
 
 echo "== .env"
 if [ -f .env ]; then

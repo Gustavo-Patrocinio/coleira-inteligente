@@ -1,5 +1,6 @@
 # Checks the deployed server every 30 minutes. A failed run means the server or its database
-# is down; GitHub emails the repository owner about failed scheduled runs.
+# is down, or that its backups stopped (newest dump or off-site copy older than 48 h);
+# GitHub emails the repository owner about failed scheduled runs.
 # Set the address once: Settings → Secrets and variables → Actions → Variables →
 # HEALTH_URL = https://<your server>/health   (without it the check is skipped)
 name: Uptime
@@ -34,3 +35,17 @@ jobs:
           done
           echo "::error::$HEALTH_URL is not answering (server or database down)"
           exit 1
+
+      - name: GET /health/backups (newest dump and off-site copy under 48 h)
+        env:
+          HEALTH_URL: ${{ vars.HEALTH_URL }}
+        run: |
+          if [ -z "$HEALTH_URL" ]; then exit 0; fi
+          url="${HEALTH_URL%/}/backups"
+          code=$(curl -sS -m 15 -o body.json -w '%{http_code}' "$url" || echo 000)
+          cat body.json 2>/dev/null; echo
+          case "$code" in
+            200) echo "backups ok" ;;
+            404) echo "::notice::this server does not report its backups (BACKUP_DIR unset)" ;;
+            *)   echo "::error::backups are late or missing ($code): see the body above"; exit 1 ;;
+          esac

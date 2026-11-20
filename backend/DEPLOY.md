@@ -90,6 +90,12 @@ database, counts the rows of the main tables and drops it again; the live databa
 touched. Run it after setting up and then monthly: it is how a backup that would not restore
 gets noticed (the first one on our server was empty, see the backup service's comment).
 
+**Are backups still happening?** `GET /health/backups` answers 200 with the age in hours of the
+newest dump and of the last off-site upload (`local_age_h`, `offsite_age_h`), and 503 with the
+reason when either is older than 48 hours. The *Uptime* workflow checks it next to `/health`
+(DEPLOY-ORACLE.md, *Day to day*), so a backup that silently stopped emails you. It is
+separate from `/health` on purpose: a late backup should warn you, not mark the API down.
+
 **End-to-end check:** `bash smoke-test.sh https://<domain>` from any computer: health,
 register, a dog, password change, forgot password, delete. It cleans up after itself.
 
@@ -156,7 +162,9 @@ it*).
 - [ ] Only ports 22, 80 and 443 open; SSH with keys, password login off
 - [ ] Dependencies without known vulnerabilities: `npm audit --omit=dev` in `backend/` (CI
       fails on high/critical ones; Dependabot opens update PRs)
-- [ ] Unattended OS security updates on (`sudo apt install unattended-upgrades`)
+- [ ] Unattended OS security updates on (`sudo apt install unattended-upgrades`), with an
+      automatic reboot at night when a kernel update needs one (`setup-ubuntu.sh` sets both)
+- [ ] Container logs rotate (`docker-compose.yml` caps each container at 3 × 10 MB)
 - [ ] Off-site backups on (`--profile offsite`), the passphrase saved outside the server,
       and a restore tested once
 - [ ] If other people use your instance: the privacy notice and consent in the app (LGPD),

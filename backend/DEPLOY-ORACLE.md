@@ -148,13 +148,16 @@ database (DEPLOY.md). The phones keep working once the domain points at the new 
 | Check everything end to end (from any computer) | `bash smoke-test.sh https://<domain>` |
 | Restore drill from the off-site copies (monthly) | `bash restore-check.sh` |
 
-The VM restarts on its own after kernel updates now and then; every container has
-`restart: unless-stopped` and comes back by itself.
+When an update needs a reboot (kernel, libc), the VM reboots itself at 07:00 UTC (04:00 in
+Brazil; `setup-ubuntu.sh` writes `/etc/apt/apt.conf.d/52collar-reboot`). Every container has
+`restart: unless-stopped` and is back within a minute. Container logs rotate at 3 × 10 MB, and
+`docker builder prune -f` clears old build layers after many updates.
 
 **Get an email when it is down:** on GitHub, the repository's *Settings → Secrets and
 variables → Actions → Variables → New repository variable*: `HEALTH_URL` =
 `https://<domain>/health`. The *Uptime* workflow checks it every 30 minutes (including the
-database) and GitHub emails you when a run fails.
+database) and also `/health/backups` (newest dump and off-site copy younger than 48 hours),
+and GitHub emails you when a run fails.
 
 **Password reset by email:** DEPLOY.md, *Email*; the SMTP lines go in the same `.env`, then
 `docker compose --profile offsite up -d api`.
