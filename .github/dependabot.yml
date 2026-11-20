@@ -4,6 +4,8 @@
 # - the TimescaleDB image: a Postgres major change needs a dump/restore of the data volume
 # - Node and @types/node majors: the server stays on Node 22 LTS
 # - TypeScript majors (7 is the native rewrite; not needed here)
+# - vitest 5 (its peer dependencies crash npm 10's installer; revisit with npm 11)
+# - cupertino_icons 2 (no icon the app uses changed; nothing to gain)
 version: 2
 updates:
   - package-ecosystem: npm
@@ -18,6 +20,8 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: typescript
         update-types: ["version-update:semver-major"]
+      - dependency-name: vitest
+        versions: ["5.x"]
   - package-ecosystem: pub
     directory: /app
     schedule: { interval: weekly }
@@ -25,6 +29,9 @@ updates:
     groups:
       app-minor:
         update-types: [minor, patch]
+    ignore:
+      - dependency-name: cupertino_icons
+        versions: ["2.x"]
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: monthly }
